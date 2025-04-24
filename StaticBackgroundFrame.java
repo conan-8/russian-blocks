@@ -20,7 +20,7 @@ public class StaticBackgroundFrame {
             "./res/options/quit.png"
         };
 
-        JFrame frame = new JFrame("Background with Overlay Cycler");
+        JFrame frame = new JFrame("Tetris Game");
         ImagePanel backgroundPanel = new ImagePanel(backgroundPath, overlayPaths);
 
         frame.setContentPane(backgroundPanel);
