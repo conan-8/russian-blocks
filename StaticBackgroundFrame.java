@@ -159,18 +159,71 @@ class ImagePanel extends JPanel implements KeyListener {
             } while (overlayImages[nextIndex] == null && nextIndex != initialIndex);
 
         } else if (keyCode == KeyEvent.VK_UP) {
-             do {
+            do {
                 nextIndex = (nextIndex - 1 + numOverlays) % numOverlays;
-             } while (overlayImages[nextIndex] == null && nextIndex != initialIndex);
+            } while (overlayImages[nextIndex] == null && nextIndex != initialIndex);
         }
 
         if ((keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_DOWN) && overlayImages[nextIndex] != null) {
-             currentOverlayIndex = nextIndex;
-             System.out.println("Overlay changed to index: " + currentOverlayIndex);
-             repaint();
+            currentOverlayIndex = nextIndex;
+            System.out.println("Overlay changed to index: " + currentOverlayIndex);
+            repaint();
         } else if ((keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_DOWN)) {
-             System.out.println("Could not find a valid overlay to switch to.");
+            System.out.println("Could not find a valid overlay to switch to.");
+        } else if (keyCode == KeyEvent.VK_ENTER || keyCode == KeyEvent.VK_SPACE) {
+            handleSelection();
         }
+    }
+
+    private void handleSelection() {
+        switch (currentOverlayIndex) {
+            case 0: // Easy
+            case 1: // Medium
+            case 2: // Hard
+                openGameScreen();
+                break;
+            case 3: // Credits
+                showCreditsOverlay();
+                break;
+            case 4: // Quit
+                System.exit(0);
+                break;
+            default:
+                System.out.println("Invalid selection.");
+        }
+    }
+
+    private void openGameScreen() {
+        JFrame gameFrame = new JFrame("Game Screen");
+        ImagePanel gamePanel = new ImagePanel("./res/bg/game.png", null);
+
+        gameFrame.setContentPane(gamePanel);
+        gameFrame.setSize(720, 720);
+        gameFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        gameFrame.setLocationRelativeTo(null);
+        gameFrame.setVisible(true);
+
+        gamePanel.requestFocusInWindow();
+    }
+
+    private void showCreditsOverlay() {
+        JFrame creditsFrame = new JFrame("Credits");
+        ImagePanel creditsPanel = new ImagePanel("./res/credits.png", null);
+
+        creditsFrame.setContentPane(creditsPanel);
+        creditsFrame.setSize(720, 720);
+        creditsFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        creditsFrame.setLocationRelativeTo(null);
+        creditsFrame.setVisible(true);
+
+        creditsPanel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                creditsFrame.dispose();
+            }
+        });
+
+        creditsPanel.requestFocusInWindow();
     }
 
     @Override
