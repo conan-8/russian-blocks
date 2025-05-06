@@ -25,6 +25,7 @@ public class StaticBackgroundFrame {
 
         frame.setContentPane(backgroundPanel);
         frame.setSize(720, 720);
+        frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
