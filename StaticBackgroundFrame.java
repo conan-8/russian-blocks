@@ -1,5 +1,3 @@
-// ✅ CLEANED UP VERSION — FIXED STRUCTURE, BUILD ERRORS, AND GAME MODE
-
 import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.event.KeyEvent;
