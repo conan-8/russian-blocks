@@ -190,7 +190,7 @@ class ImagePanel extends JPanel implements KeyListener {
         int panelWidth = this.getWidth();
         int spacing = panelWidth / (bobbingImages.size() + 1);
         int[] bobx = {-100, -60,430,-250,300, 550,-140};
-        int[] boby = {125, -160,0,0,500, 300,460};
+        int[] boby = {225, -160,0,0,500, 300,460};
 
         for (int i = 0; i < bobbingImages.size(); i++) {
             Image img = bobbingImages.get(i);
