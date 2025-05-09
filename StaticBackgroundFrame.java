@@ -386,8 +386,8 @@ class ImagePanel implements KeyListener {
                 newBlock.sourceImagePivotY = 45; // Pivot based on 30px unit: (1.5 * 30)
                 break;
             case 1: // T-shape (e.g., source image is 99x66 if conceptual blockSize=33)
-                newBlock.sourceImagePivotX = 1.5 * 35; // 49.5
-                newBlock.sourceImagePivotY = 0.5 * 35; // 16.5
+                newBlock.sourceImagePivotX = 1.5 * 45; // 49.5
+                newBlock.sourceImagePivotY = 0.5 * 45; // 16.5
                 break;
             case 2: // S-shape (e.g., source image is 90x60 if conceptual blockSize=30)
                 newBlock.sourceImagePivotX = 45; // Pivot based on 30px unit
@@ -402,8 +402,8 @@ class ImagePanel implements KeyListener {
                 newBlock.sourceImagePivotY = 45; // Pivot based on 30px unit
                 break;
             case 5: // I-shape (e.g., source image is 132x33 if conceptual blockSize=33, horizontal)
-                newBlock.sourceImagePivotX = (4 * 35) / 2.0; // 66.0 (geometric center X)
-                newBlock.sourceImagePivotY = (1 * 35) / 2.0; // 16.5 (geometric center Y)
+                newBlock.sourceImagePivotX = (4 * 33.75) / 2.0; // 66.0 (geometric center X)
+                newBlock.sourceImagePivotY = (1 * 45) / 2.0; // 16.5 (geometric center Y)
                 break;
             case 6: // O-shape (e.g., source image is 66x66 if conceptual blockSize=33)
                 newBlock.sourceImagePivotX = (2 * 35) / 2.0; // 33.0 (geometric center X)
