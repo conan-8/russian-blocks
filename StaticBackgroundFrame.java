@@ -1,4 +1,5 @@
 import java.awt.Graphics;
+import java.awt.Graphics2D; // Added for rotation
 import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
@@ -14,18 +15,22 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
-// TetrisBlock class to represent a single Tetris piece
+// TetrisBlock class now represents a simple movable, rotatable image
 class TetrisBlock {
-    public int[][] shape; // The 2D array representing the block's logical shape and bounding box
-    public double x;      // The x-coordinate of the block on the game grid (top-left of bounding box)
-    public double y;      // The y-coordinate of the block on the game grid (top-left of bounding box)
-    public Image blockImage; // Image for the entire block
+    public double x;      // The x-coordinate of the image's top-left corner on the game grid
+    public double y;      // The y-coordinate of the image's top-left corner on the game grid
+    public Image blockImage; // Image for the entire block/piece
+    public int rotationAngle = 0; // Current rotation angle in degrees (0, 90, 180, 270)
+    public double sourceImagePivotX; // X pivot point on the original source image (in pixels)
+    public double sourceImagePivotY; // Y pivot point on the original source image (in pixels)
 
-    public TetrisBlock(int[][] shape) {
-        this.shape = shape;
-        this.x = 0.9; 
-        this.y = 0.0; 
+
+    public TetrisBlock() { 
+        this.x = 1.0;  // User-defined initial X
+        this.y = 0.85; // User-defined initial Y
         this.blockImage = null; // Will be set after creation by ImagePanel
+        this.sourceImagePivotX = 0; // Default pivot, will be set in spawnNewBlock
+        this.sourceImagePivotY = 0; // Default pivot
     }
 
     // Method to move the block down
@@ -34,27 +39,16 @@ class TetrisBlock {
     }
 
     public void moveLeft() {
-        x -= 1.13; 
+        x -= 1.12; 
     }
 
     public void moveRight() {
-        x += 1.13; 
+        x += 1.12; 
     }
 
+    // Cycles through 0, 90, 180, 270 degrees
     public void rotate() {
-        // Rotation logic still manipulates the 'shape' array to redefine the bounding box
-        // and how the block interacts with the grid logically.
-        if (shape == null || shape.length == 0) return;
-        int rows = shape.length;
-        int cols = shape[0].length;
-        if (cols == 0) return; 
-        int[][] newShape = new int[cols][rows];
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                newShape[c][rows - 1 - r] = shape[r][c];
-            }
-        }
-        this.shape = newShape;
+        rotationAngle = (rotationAngle + 90) % 360;
     }
 }
 
@@ -91,11 +85,10 @@ public class StaticBackgroundFrame {
 }
 
 class ImagePanel implements KeyListener { 
-    // --- Configuration for Tetris Piece Images ---
-    // !!! EDIT THIS LINE TO CHANGE THE DIRECTORY FOR FULL TETRIS BLOCK PNGs !!!
-    private static final String TETRIS_BLOCK_IMAGE_DIRECTORY = "./res/full_block_pieces/"; 
-    // Assumes piece images are named block_type_0.png, block_type_1.png, ..., block_type_6.png
-    // Each PNG should be the image for the *entire* block shape.
+    
+    // !!! EDIT THIS LINE TO CHANGE THE DIRECTORY FOR THE 7 BLOCK PNGs !!!
+    private static final String TETRIS_BLOCK_IMAGE_DIRECTORY = "./res/pieces/"; 
+    // Assumes piece images are named piece_0.png, piece_1.png, ..., piece_6.png
 
     private boolean inGameMode = false;
     private TetrisBlock currentBlock = null;
@@ -105,7 +98,7 @@ class ImagePanel implements KeyListener {
     private int currentOverlayIndex = 0;
     private final int overlayYPosition = 275;
 
-    private final List<Image> bobbingImages = new ArrayList<>(); // These are still segment images for the menu
+    private final List<Image> bobbingImages = new ArrayList<>(); // For menu decoration
     private final int[] bobbingOffsets = new int[7]; 
     private final int[] bobbingSpeeds = new int[7];  
     private final int bobbingAmplitude = 20;
@@ -114,7 +107,7 @@ class ImagePanel implements KeyListener {
     private final Random random = new Random();
     private final ActualDisplayPanel drawingPanel;
 
-    // Array to store the images for each of the 7 Tetris block types
+    // Array to store the 7 images for the different "block" types/overlays
     private Image[] tetrisBlockTypeImages = new Image[7];
 
     private class ActualDisplayPanel extends JPanel {
@@ -137,51 +130,48 @@ class ImagePanel implements KeyListener {
                 }
 
                 if (ImagePanel.this.currentBlock != null) {
-                    int blockSize = 30; // This now primarily defines the grid unit size for positioning
+                    int blockSize = 30; // Defines the grid unit size for positioning
                     TetrisBlock block = ImagePanel.this.currentBlock;
                     
-                    // Draw the single image for the entire block
                     if (block.blockImage != null) {
-                        // block.x and block.y are grid coordinates for the top-left of the block's bounding box
+                        Graphics2D g2d = (Graphics2D) g.create(); // Work on a copy
+
                         int drawX = (int)(block.x * blockSize); 
                         int drawY = (int)(block.y * blockSize);
                         
-                        // Draw the image using its natural width and height.
-                        // The PNG itself should be sized correctly (e.g., an I-block PNG might be 120x30 if blockSize is 30).
-                        g.drawImage(block.blockImage, drawX, drawY, this); 
-                    } else {
-                        // Fallback: if the full block image is missing, you could draw its shape with rectangles
-                        // For simplicity, this fallback is basic.
-                        if (block.shape != null) {
-                            g.setColor(java.awt.Color.DARK_GRAY);
-                            for (int r = 0; r < block.shape.length; r++) {
-                                if (block.shape[r] != null) { 
-                                    for (int c = 0; c < block.shape[r].length; c++) {
-                                        if (block.shape[r][c] == 1) {
-                                            int segmentDrawX = (int)((block.x + c) * blockSize);
-                                            int segmentDrawY = (int)((block.y + r) * blockSize);
-                                            g.fillRect(segmentDrawX, segmentDrawY, blockSize, blockSize);
-                                        }
-                                    }
-                                }
-                            }
+                        int naturalWidth = block.blockImage.getWidth(this);
+                        int naturalHeight = block.blockImage.getHeight(this);
+
+                        if (naturalWidth > 0 && naturalHeight > 0) { 
+                            int scaledWidth = (int)(naturalWidth * 0.7);
+                            int scaledHeight = (int)(naturalHeight * 0.7);
+
+                            // Calculate the absolute pivot point on the panel
+                            // The pivot is defined on the source image, then scaled, then offset by drawX/drawY
+                            double absolutePivotX = drawX + (block.sourceImagePivotX * 0.7);
+                            double absolutePivotY = drawY + (block.sourceImagePivotY * 0.7);
+
+                            g2d.rotate(Math.toRadians(block.rotationAngle), absolutePivotX, absolutePivotY);
+                            g2d.drawImage(block.blockImage, drawX, drawY, scaledWidth, scaledHeight, this); 
+                        } else {
+                            System.err.println("Warning: currentBlock.blockImage has invalid dimensions (0 or less).");
                         }
-                    }
+                        g2d.dispose(); // Release the copied graphics context
+                    } 
                 }
                 return;
             }
 
-            // --- Menu Mode Rendering (Corrected) ---
+            // --- Menu Mode Rendering ---
             if (ImagePanel.this.backgroundImage != null) {
                 g.drawImage(ImagePanel.this.backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
             } else {
-                g.setColor(java.awt.Color.GRAY); // Fallback color for background
+                g.setColor(java.awt.Color.GRAY); 
                 g.fillRect(0, 0, getWidth(), getHeight());
                 g.setColor(java.awt.Color.RED);
                 g.drawString("Background image failed to load.", 20, 30);
             }
 
-            // Draw the currently selected menu option overlay
             if (ImagePanel.this.overlayImages != null && 
                 ImagePanel.this.currentOverlayIndex >= 0 && 
                 ImagePanel.this.currentOverlayIndex < ImagePanel.this.overlayImages.length && 
@@ -189,23 +179,19 @@ class ImagePanel implements KeyListener {
                 Image currentOverlay = ImagePanel.this.overlayImages[ImagePanel.this.currentOverlayIndex];
                 int overlayWidth = currentOverlay.getWidth(this);
                 int panelWidth = this.getWidth();
-                int x = (panelWidth - overlayWidth) / 2; // Center the overlay horizontally
+                int x = (panelWidth - overlayWidth) / 2; 
                 g.drawImage(currentOverlay, x, ImagePanel.this.overlayYPosition, this);
             } else if (ImagePanel.this.currentOverlayIndex != -1 && ImagePanel.this.overlayImages != null && ImagePanel.this.overlayImages.length > 0) { 
-                // Only show "failed to load" if there were supposed to be overlays
                 g.setColor(java.awt.Color.YELLOW);
                 g.drawString("Selected overlay image failed to load.", 20, 50);
             }
 
-            // Define fixed positions for bobbing images (ensure these arrays are correctly sized if you change number of bobbing images)
             int[] bobx = {-100, -60, 430, -250, 300, 550, -140}; 
             int[] boby = {225, -160, 0, 0, 500, 300, 460}; 
 
-            // Draw bobbing images
             for (int i = 0; i < ImagePanel.this.bobbingImages.size(); i++) {
                 Image img = ImagePanel.this.bobbingImages.get(i);
                 if (img != null) {
-                    // Ensure bobx, boby, and bobbingOffsets have enough elements for the current image
                     if (i < bobx.length && i < boby.length && i < ImagePanel.this.bobbingOffsets.length) {
                         int x = bobx[i];
                         int y = boby[i] + ImagePanel.this.bobbingOffsets[i];
@@ -222,44 +208,41 @@ class ImagePanel implements KeyListener {
 
         loadBackgroundImage(backgroundPath);
         loadOverlayImages(overlayPaths);
-        loadBobbingImages(); // For menu
-        loadTetrisBlockTypeImages(); // Load images for full Tetris blocks
+        loadBobbingImages(); 
+        loadTetrisBlockTypeImages(); // Load the 7 block/piece images
 
-        // Initialize currentOverlayIndex, skipping nulls
         if (overlayImages == null || overlayImages.length == 0) {
             currentOverlayIndex = -1;
         } else {
-            currentOverlayIndex = 0; // Start at the first one
+            currentOverlayIndex = 0; 
             while (currentOverlayIndex < overlayImages.length && overlayImages[currentOverlayIndex] == null) {
                 currentOverlayIndex++;
             }
-            if (currentOverlayIndex >= overlayImages.length) { // All overlays were null
+            if (currentOverlayIndex >= overlayImages.length) { 
                 currentOverlayIndex = -1;
             }
         }
         startBobbingAnimation();
     }
 
-    // Method to load the 7 PNGs for *full* Tetris block types
+    // Method to load the 7 PNGs for the different "block" types/overlays
     private void loadTetrisBlockTypeImages() {
         String basePath = TETRIS_BLOCK_IMAGE_DIRECTORY; 
         for (int i = 0; i < 7; i++) {
-            // Expecting names like block_type_0.png, block_type_1.png, etc.
-            // These are images of the *entire block*, not segments.
-            String imagePath = basePath + "block_type_" + i + ".png"; 
+            String imagePath = basePath + "piece_" + i + ".png"; 
             try {
                 File imageFile = new File(imagePath);
                 this.tetrisBlockTypeImages[i] = ImageIO.read(imageFile);
                 if (this.tetrisBlockTypeImages[i] == null && imageFile.exists()) {
-                     System.err.println("Warning: Full Tetris block image loaded as null from existing file: " + imagePath);
+                     System.err.println("Warning: Block image loaded as null from existing file: " + imagePath);
                 } else if (!imageFile.exists()) {
-                     System.err.println("Error: Full Tetris block image file not found: " + imagePath);
+                     System.err.println("Error: Block image file not found: " + imagePath);
                      this.tetrisBlockTypeImages[i] = null; 
                 } else {
-                    System.out.println("Loaded full Tetris block image: " + imagePath);
+                    System.out.println("Loaded block image: " + imagePath);
                 }
             } catch (IOException e) {
-                System.err.println("IOException occurred loading full Tetris block image: " + imagePath + " - " + e.getMessage());
+                System.err.println("IOException occurred loading block image: " + imagePath + " - " + e.getMessage());
                 this.tetrisBlockTypeImages[i] = null; 
             }
         }
@@ -268,7 +251,7 @@ class ImagePanel implements KeyListener {
     public JPanel getDrawingPanel() { return this.drawingPanel; }
     
     private void startBobbingAnimation() { 
-        Timer timer = new Timer(16, e -> { // Roughly 60 FPS
+        Timer timer = new Timer(16, e -> { 
             timerTick++;
             for (int i = 0; i < bobbingOffsets.length; i++) {
                 if (i < bobbingSpeeds.length && bobbingSpeeds[i] > 0) { 
@@ -323,7 +306,7 @@ class ImagePanel implements KeyListener {
 
     private void loadBobbingImages() { 
         bobbingImages.clear(); 
-        String bobbingBasePath = "./res/pieces/glow/"; // Path for bobbing images
+        String bobbingBasePath = "./res/pieces/glow/"; 
         for (int i = 1; i <= 7; i++) { 
             String imagePath = bobbingBasePath + i + ".png";
             try {
@@ -356,11 +339,11 @@ class ImagePanel implements KeyListener {
             return;
         }
         switch (currentOverlayIndex) {
-            case 0: case 1: case 2: // Easy, Medium, Hard
+            case 0: case 1: case 2: 
                 openGameScreen(); break;
-            case 3: // Credits
+            case 3: 
                 showCreditsOverlay(); break;
-            case 4: // Quit
+            case 4: 
                 System.exit(0); break;
         }
     }
@@ -376,27 +359,60 @@ class ImagePanel implements KeyListener {
         drawingPanel.repaint(); 
     }
 
+    // Spawns a block with a randomly chosen image and sets its pivot point
     private TetrisBlock spawnNewBlock() {
-        // The 'shapes' array still defines the logical structure and bounding box of the pieces.
-        // This is important for rotation and potential collision detection.
-        int[][][] shapes = { 
-            {{1, 1, 1, 1}},         // I (block_type_0.png)
-            {{1, 1}, {1, 1}},       // O (block_type_1.png)
-            {{0, 1, 0}, {1, 1, 1}}, // T (block_type_2.png)
-            {{0, 1, 1}, {1, 1, 0}}, // S (block_type_3.png)
-            {{1, 1, 0}, {0, 1, 1}}, // Z (block_type_4.png)
-            {{1, 0, 0}, {1, 1, 1}}, // L (block_type_5.png)
-            {{0, 0, 1}, {1, 1, 1}}  // J (block_type_6.png)
-        };
-        int shapeIndex = random.nextInt(shapes.length);
-        TetrisBlock newBlock = new TetrisBlock(shapes[shapeIndex]); // Pass the logical shape
+        TetrisBlock newBlock = new TetrisBlock(); 
         
-        // Assign the pre-loaded image for this entire block type
-        if (shapeIndex < tetrisBlockTypeImages.length) {
-            newBlock.blockImage = tetrisBlockTypeImages[shapeIndex];
+        int imageIndex = random.nextInt(tetrisBlockTypeImages.length); 
+        
+        if (imageIndex < tetrisBlockTypeImages.length) {
+            newBlock.blockImage = tetrisBlockTypeImages[imageIndex];
         } else {
-            System.err.println("Error: Shape index out of bounds for full block type images.");
+            System.err.println("Error: Random image index out of bounds for block type images.");
             newBlock.blockImage = null; 
+            newBlock.sourceImagePivotX = 0; 
+            newBlock.sourceImagePivotY = 0;
+            return newBlock;
+        }
+
+        // Define pivot points (in pixels on the source image) for each piece type
+        // User piece order: 0:Z, 1:T, 2:S, 3:L, 4:J, 5:I, 6:O
+        // IMPORTANT: These values MUST match how your piece_0.png to piece_6.png are designed.
+        // Pivots for Z,S,L,J assume a 30px square unit for their source images.
+        // Pivots for I,O,T now assume a 33px square unit for their source images.
+        switch (imageIndex) {
+            case 0: // Z-shape (e.g., source image is 90x60 if conceptual blockSize=30)
+                newBlock.sourceImagePivotX = 45; // Pivot based on 30px unit: (1.5 * 30)
+                newBlock.sourceImagePivotY = 45; // Pivot based on 30px unit: (1.5 * 30)
+                break;
+            case 1: // T-shape (e.g., source image is 99x66 if conceptual blockSize=33)
+                newBlock.sourceImagePivotX = 1.5 * 35; // 49.5
+                newBlock.sourceImagePivotY = 0.5 * 35; // 16.5
+                break;
+            case 2: // S-shape (e.g., source image is 90x60 if conceptual blockSize=30)
+                newBlock.sourceImagePivotX = 45; // Pivot based on 30px unit
+                newBlock.sourceImagePivotY = 45; // Pivot based on 30px unit
+                break;
+            case 3: // L-shape (e.g., source image is 90x60 if conceptual blockSize=30)
+                newBlock.sourceImagePivotX = 45; // Pivot based on 30px unit
+                newBlock.sourceImagePivotY = 45; // Pivot based on 30px unit
+                break;
+            case 4: // J-shape (e.g., source image is 90x60 if conceptual blockSize=30)
+                newBlock.sourceImagePivotX = 45; // Pivot based on 30px unit
+                newBlock.sourceImagePivotY = 45; // Pivot based on 30px unit
+                break;
+            case 5: // I-shape (e.g., source image is 132x33 if conceptual blockSize=33, horizontal)
+                newBlock.sourceImagePivotX = (4 * 35) / 2.0; // 66.0 (geometric center X)
+                newBlock.sourceImagePivotY = (1 * 35) / 2.0; // 16.5 (geometric center Y)
+                break;
+            case 6: // O-shape (e.g., source image is 66x66 if conceptual blockSize=33)
+                newBlock.sourceImagePivotX = (2 * 35) / 2.0; // 33.0 (geometric center X)
+                newBlock.sourceImagePivotY = (2 * 35) / 2.0; // 33.0 (geometric center Y)
+                break;
+            default: 
+                newBlock.sourceImagePivotX = 0; 
+                newBlock.sourceImagePivotY = 0;
+                break;
         }
         return newBlock;
     }
@@ -431,7 +447,7 @@ class ImagePanel implements KeyListener {
                     currentBlock.moveLeft();
                 } else if (keyCode == KeyEvent.VK_RIGHT || keyCode == KeyEvent.VK_D) {
                     currentBlock.moveRight();
-                } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_SPACE) {
+                } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_SPACE) { 
                     currentBlock.rotate();
                 }
                 drawingPanel.repaint(); 
@@ -461,9 +477,7 @@ class ImagePanel implements KeyListener {
                  currentOverlayIndex = nextIndex;
                  drawingPanel.repaint(); 
             } else if (nextIndex == initialIndex && overlayImages[initialIndex] == null) {
-                 // If all images are null or only one null image exists, stay put.
             } else if (overlayImages[initialIndex] != null) {
-                // If we couldn't find another valid image but the current one is fine, stay.
                 currentOverlayIndex = initialIndex; 
             }
         } else if (keyCode == KeyEvent.VK_ENTER || keyCode == KeyEvent.VK_SPACE) {
