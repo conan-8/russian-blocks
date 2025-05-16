@@ -16,43 +16,53 @@ import javax.swing.JPanel;
 import javax.swing.Timer; 
 
 
+final class GridConfig {
+    public static final int GRID_WIDTH = 10;
+    public static final int GRID_HEIGHT = 20;
+    public static final double BLOCK_WIDTH = 1.0;
+    public static final double BLOCK_HEIGHT = 1.0;
+}
+
 class TetrisBlock {
-    public double x;      // The x-coordinate of the image's top-left corner on the game grid
-    public double y;      // The y-coordinate of the image's top-left corner on the game grid
-    public Image blockImage; // Image for the entire block/piece
-    public int rotationAngle = 0; // Current rotation angle in degrees (0, 90, 180, 270)
-    public double sourceImagePivotX; // X pivot point on the original source image (in pixels)
-    public double sourceImagePivotY; // Y pivot point on the original source image (in pixels)
+    public double x;
+    public double y;
+    public Image blockImage;
+    public int rotationAngle = 0;
+    public double sourceImagePivotX;
+    public double sourceImagePivotY;
 
-
-    public TetrisBlock() { 
-        this.x = 1.0;  //  initial X, defined by user
-        this.y = 0.85; //  initial Y
-        this.blockImage = null; // Will be set after creation by ImagePanel
-        this.sourceImagePivotX = 0; // Default pivot, will be set in spawnNewBlock
-        this.sourceImagePivotY = 0; // Default pivot
+    public TetrisBlock() {
+        this.x = 1.0;
+        this.y = 0.0;
+        this.blockImage = null;
+        this.sourceImagePivotX = 0;
+        this.sourceImagePivotY = 0;
     }
 
-    // Method to move the block down
     public void moveDown() {
-        y += 1.08; 
+        if (y + GridConfig.BLOCK_HEIGHT < GridConfig.GRID_HEIGHT) {
+            y += GridConfig.BLOCK_HEIGHT;
+        }
     }
 
     public void moveLeft() {
-        x -= 1.12; 
+        if (x - GridConfig.BLOCK_WIDTH >= 0) {
+            x -= GridConfig.BLOCK_WIDTH;
+        }
     }
 
     public void moveRight() {
-        x += 1.12; 
+        if (x + GridConfig.BLOCK_WIDTH < GridConfig.GRID_WIDTH) {
+            x += GridConfig.BLOCK_WIDTH;
+        }
     }
 
-    // Cycles through 0, 90, 180, 270 degrees
     public void rotate() {
         rotationAngle = (rotationAngle + 90) % 360;
     }
 }
 
-// Main class to launch the application
+
 public class StaticBackgroundFrame {
     public static void main(String[] args) {
         String backgroundPath = "./res/bg/mainmenu.png"; 
