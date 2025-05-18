@@ -1,5 +1,5 @@
 import java.awt.Graphics;
-import java.awt.Graphics2D; 
+import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
@@ -13,8 +13,7 @@ import java.util.Random;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-import javax.swing.Timer; 
-
+import javax.swing.Timer;
 
 final class GridConfig {
     public static final int GRID_WIDTH = 10;
@@ -30,42 +29,60 @@ class TetrisBlock {
     public int rotationAngle = 0;
     public double sourceImagePivotX;
     public double sourceImagePivotY;
+    public double visualWidthInGridUnits = 3.0; // Default, will be set by piece type
+    public double minX = 0.0;
+    public double maxX = GridConfig.GRID_WIDTH;
 
-    public TetrisBlock() {
-        this.x = 1.0;
-        this.y = 0.0;
-        this.blockImage = null;
-        this.sourceImagePivotX = 0;
-        this.sourceImagePivotY = 0;
+    // Calculates the width of the block in grid units based on its image.
+    // This method seems to have a fixed scaling (0.7) and division (30.0)
+    // which might need adjustment based on actual image dimensions and desired grid fit.
+    public double getWidthInGridUnits() {
+        if (blockImage == null) return 1.0; // Default if no image
+        int pixelWidth = blockImage.getWidth(null);
+        // Applying a scaling factor, assuming 30 pixels per grid unit after scaling.
+        int scaledWidth = (int)(pixelWidth * 0.7);
+        return scaledWidth / 30.0;
     }
 
+    public TetrisBlock() {
+        this.x = 1.0; // Initial default X position
+        this.y = 0.0; // Initial Y position (top of the grid)
+        this.blockImage = null; // Image will be set on spawn
+        this.sourceImagePivotX = 0; // Pivot X for rotation, relative to image top-left
+        this.sourceImagePivotY = 0; // Pivot Y for rotation, relative to image top-left
+    }
+
+    // Moves the block down by one grid unit if possible.
     public void moveDown() {
         if (y + GridConfig.BLOCK_HEIGHT < GridConfig.GRID_HEIGHT) {
             y += GridConfig.BLOCK_HEIGHT;
         }
     }
 
+    // Moves the block left by one grid unit if possible.
     public void moveLeft() {
-        if (x - GridConfig.BLOCK_WIDTH >= 0) {
-            x -= GridConfig.BLOCK_WIDTH;
+    if (x - GridConfig.BLOCK_WIDTH >= minX) {
+        x -= GridConfig.BLOCK_WIDTH;
         }
     }
 
+    // Moves the block right by one grid unit if possible.
     public void moveRight() {
-        if (x + GridConfig.BLOCK_WIDTH < GridConfig.GRID_WIDTH) {
-            x += GridConfig.BLOCK_WIDTH;
+    if (x + visualWidthInGridUnits + GridConfig.BLOCK_WIDTH / 2.0 <= maxX) {
+        x += GridConfig.BLOCK_WIDTH;
         }
     }
 
+    // Rotates the block 90 degrees clockwise.
     public void rotate() {
         rotationAngle = (rotationAngle + 90) % 360;
     }
 }
 
-
 public class StaticBackgroundFrame {
     public static void main(String[] args) {
-        String backgroundPath = "./res/bg/mainmenu.png"; 
+        // Define paths for resources
+        String backgroundPath = "./res/bg/mainmenu.png";
         String[] overlayPaths = {
             "./res/options/easy.png",
             "./res/options/medium.png",
@@ -74,257 +91,277 @@ public class StaticBackgroundFrame {
             "./res/options/quit.png"
         };
 
+        // Create the main frame
         JFrame frame = new JFrame("Tetris Game");
+        // ImagePanel acts as the main logic controller and custom drawing panel provider
         ImagePanel logicController = new ImagePanel(backgroundPath, overlayPaths);
 
-        frame.setContentPane(logicController.getDrawingPanel()); 
-        frame.setSize(720, 720);
+        // Set up the frame
+        frame.setContentPane(logicController.getDrawingPanel());
+        frame.setSize(720, 720); // Fixed size
         frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setLocationRelativeTo(null);
+        frame.setLocationRelativeTo(null); // Center on screen
         frame.setVisible(true);
 
+        // Request focus for the drawing panel once the window is opened to ensure key events are captured.
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowOpened(java.awt.event.WindowEvent e) {
                 logicController.getDrawingPanel().requestFocusInWindow();
             }
         });
+        // Also request focus immediately, in case windowOpened is not timely enough.
         logicController.getDrawingPanel().requestFocusInWindow();
     }
 }
 
-class ImagePanel implements KeyListener { 
-    
-    // !!! EDIT THIS LINE TO CHANGE THE DIRECTORY FOR THE 7 BLOCK PNGs !!!
-    private static final String TETRIS_BLOCK_IMAGE_DIRECTORY = "./res/pieces/"; 
-    // Assumes piece images are named piece_0.png, piece_1.png, ..., piece_6.png
+class ImagePanel implements KeyListener {
 
-    private boolean inGameMode = false;
-    private TetrisBlock currentBlock = null;
+    private static final String TETRIS_BLOCK_IMAGE_DIRECTORY = "./res/pieces/";
+
+    private boolean inGameMode = false; // Tracks if the game screen or menu is active
+    private TetrisBlock currentBlock = null; // The currently falling Tetris block
     private List<TetrisBlock> landedBlocks = new ArrayList<>(); // Stores all blocks that have landed
 
-    private Image backgroundImage;
-    private Image[] overlayImages;
-    private int currentOverlayIndex = 0;
-    private final int overlayYPosition = 275;
+    private Image backgroundImage; // Background image for the current screen
+    private Image[] overlayImages; // Images for menu options
+    private int currentOverlayIndex = 0; // Index for the currently selected menu option
+    private final int overlayYPosition = 275; // Y position for drawing menu options
 
-    private final List<Image> bobbingImages = new ArrayList<>(); // For menu decoration
-    private final int[] bobbingOffsets = new int[7]; 
-    private final int[] bobbingSpeeds = new int[7];  
-    private final int bobbingAmplitude = 20;
-    private int timerTick = 0;
+    // For menu decoration - bobbing Tetris pieces
+    private final List<Image> bobbingImages = new ArrayList<>();
+    private final int[] bobbingOffsets = new int[7]; // Vertical offsets for bobbing animation
+    private final int[] bobbingSpeeds = new int[7];  // Speeds for bobbing animation
+    private final int bobbingAmplitude = 20; // Amplitude of the bobbing motion
+    private int timerTick = 0; // Counter for animation timing
 
-    private final Random random = new Random(); // Random number generator for selecting blocks
-    private final ActualDisplayPanel drawingPanel;
+    private final Random random = new Random(); // For selecting random Tetris blocks
+    private final ActualDisplayPanel drawingPanel; // The JPanel where everything is drawn
 
-    // Array to store the 7 images for the different "block" types/overlays
+    // Array to store the 7 images for the different Tetris block types
     private Image[] tetrisBlockTypeImages = new Image[7];
 
-    private Timer gameTimer; // Timer for game ticks (e.g., block falling)
-    private int moveDownCount = 0; // Counter for how many times the block has moved down
+    private Timer gameTimer; // Timer for game ticks (e.g., block falling automatically)
+    private int moveDownCount = 0; // Counter for how many times the current block has moved down automatically
 
+    // Inner class for the actual drawing surface
     private class ActualDisplayPanel extends JPanel {
         public ActualDisplayPanel() {
             super();
-            this.setLayout(null); 
-            this.setFocusable(true); 
+            this.setLayout(null); // Using null layout for absolute positioning of drawn elements
+            this.setFocusable(true); // Essential for receiving KeyEvents
         }
 
         @Override
         protected void paintComponent(Graphics g) {
-            super.paintComponent(g); 
+            super.paintComponent(g);
+            Graphics2D g2d = (Graphics2D) g.create(); // Work with a Graphics2D copy
 
             if (ImagePanel.this.inGameMode) {
+                // --- Game Mode Rendering ---
                 // Draw background image first
                 if (ImagePanel.this.backgroundImage != null) {
-                    g.drawImage(ImagePanel.this.backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
+                    g2d.drawImage(ImagePanel.this.backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
                 } else {
-                    g.setColor(java.awt.Color.BLACK); // Fallback background
-                    g.fillRect(0, 0, getWidth(), getHeight());
+                    g2d.setColor(java.awt.Color.BLACK); // Fallback background
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                    g2d.setColor(java.awt.Color.RED);
+                    g2d.drawString("Game background image failed to load.", 20, 30);
                 }
 
-                final int blockSize = 30; // Define block size for consistent rendering
+                final int blockSize = 30; // Define block size in pixels for consistent rendering on the grid
 
-                // --- Start: Draw all landed blocks ---
+                // Draw all landed blocks
                 for (TetrisBlock landedBlock : ImagePanel.this.landedBlocks) {
                     if (landedBlock != null && landedBlock.blockImage != null) {
-                        Graphics2D g2d_landed = (Graphics2D) g.create(); // Use a new graphics context for each landed block
-                        
+                        Graphics2D g2d_landed = (Graphics2D) g2d.create(); // Use a new graphics context for each landed block
+
                         int drawX = (int)(landedBlock.x * blockSize);
                         int drawY = (int)(landedBlock.y * blockSize);
-                        
+
                         int naturalWidth = landedBlock.blockImage.getWidth(this);
                         int naturalHeight = landedBlock.blockImage.getHeight(this);
 
-                        if (naturalWidth > 0 && naturalHeight > 0) { 
-                            int scaledWidth = (int)(naturalWidth * 0.7); // Apply scaling
-                            int scaledHeight = (int)(naturalHeight * 0.7); // Apply scaling
+                        if (naturalWidth > 0 && naturalHeight > 0) {
+                            // Apply scaling (0.7 seems to be a consistent factor)
+                            int scaledWidth = (int)(naturalWidth * 0.7);
+                            int scaledHeight = (int)(naturalHeight * 0.7);
 
                             // Calculate pivot for rotation relative to the block's position on the panel
                             double absolutePivotX = drawX + (landedBlock.sourceImagePivotX * 0.7);
                             double absolutePivotY = drawY + (landedBlock.sourceImagePivotY * 0.7);
 
                             g2d_landed.rotate(Math.toRadians(landedBlock.rotationAngle), absolutePivotX, absolutePivotY);
-                            g2d_landed.drawImage(landedBlock.blockImage, drawX, drawY, scaledWidth, scaledHeight, this); 
+                            g2d_landed.drawImage(landedBlock.blockImage, drawX, drawY, scaledWidth, scaledHeight, this);
                         }
                         g2d_landed.dispose(); // Dispose of the graphics context copy
                     }
                 }
-                // --- End: Draw all landed blocks ---
 
                 // Draw the current falling block (if it exists)
                 if (ImagePanel.this.currentBlock != null) {
                     TetrisBlock block = ImagePanel.this.currentBlock;
                     if (block.blockImage != null) {
-                        Graphics2D g2d_current = (Graphics2D) g.create(); // Use a new graphics context for the current block
+                        Graphics2D g2d_current = (Graphics2D) g2d.create(); // Use a new graphics context
 
-                        int drawX = (int)(block.x * blockSize); 
+                        int drawX = (int)(block.x * blockSize);
                         int drawY = (int)(block.y * blockSize);
-                        
+
                         int naturalWidth = block.blockImage.getWidth(this);
                         int naturalHeight = block.blockImage.getHeight(this);
 
-                        if (naturalWidth > 0 && naturalHeight > 0) { 
+                        if (naturalWidth > 0 && naturalHeight > 0) {
                             int scaledWidth = (int)(naturalWidth * 0.7); // Apply scaling
                             int scaledHeight = (int)(naturalHeight * 0.7); // Apply scaling
 
-                            // Calculate pivot for rotation relative to the block's position on the panel
                             double absolutePivotX = drawX + (block.sourceImagePivotX * 0.7);
                             double absolutePivotY = drawY + (block.sourceImagePivotY * 0.7);
 
                             g2d_current.rotate(Math.toRadians(block.rotationAngle), absolutePivotX, absolutePivotY);
-                            g2d_current.drawImage(block.blockImage, drawX, drawY, scaledWidth, scaledHeight, this); 
+                            g2d_current.drawImage(block.blockImage, drawX, drawY, scaledWidth, scaledHeight, this);
                         } else {
                             System.err.println("Warning: currentBlock.blockImage has invalid dimensions (0 or less).");
                         }
                         g2d_current.dispose(); // Dispose of the graphics context copy
-                    } 
+                    }
                 }
-                return; // End of inGameMode drawing
-            }
-
-            // --- Menu Mode Rendering (remains unchanged) ---
-            if (ImagePanel.this.backgroundImage != null) {
-                g.drawImage(ImagePanel.this.backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
             } else {
-                g.setColor(java.awt.Color.GRAY); 
-                g.fillRect(0, 0, getWidth(), getHeight());
-                g.setColor(java.awt.Color.RED);
-                g.drawString("Background image failed to load.", 20, 30);
-            }
+                // --- Menu Mode Rendering ---
+                if (ImagePanel.this.backgroundImage != null) {
+                    g2d.drawImage(ImagePanel.this.backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
+                } else {
+                    g2d.setColor(java.awt.Color.GRAY);
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                    g2d.setColor(java.awt.Color.RED);
+                    g2d.drawString("Menu background image failed to load.", 20, 30);
+                }
 
-            if (ImagePanel.this.overlayImages != null && 
-                ImagePanel.this.currentOverlayIndex >= 0 && 
-                ImagePanel.this.currentOverlayIndex < ImagePanel.this.overlayImages.length && 
-                ImagePanel.this.overlayImages[ImagePanel.this.currentOverlayIndex] != null) {
-                Image currentOverlay = ImagePanel.this.overlayImages[ImagePanel.this.currentOverlayIndex];
-                int overlayWidth = currentOverlay.getWidth(this);
-                int panelWidth = this.getWidth();
-                int x = (panelWidth - overlayWidth) / 2; 
-                g.drawImage(currentOverlay, x, ImagePanel.this.overlayYPosition, this);
-            } else if (ImagePanel.this.currentOverlayIndex != -1 && ImagePanel.this.overlayImages != null && ImagePanel.this.overlayImages.length > 0) { 
-                g.setColor(java.awt.Color.YELLOW);
-                g.drawString("Selected overlay image failed to load.", 20, 50);
-            }
+                // Draw current menu overlay image
+                if (ImagePanel.this.overlayImages != null &&
+                    ImagePanel.this.currentOverlayIndex >= 0 &&
+                    ImagePanel.this.currentOverlayIndex < ImagePanel.this.overlayImages.length &&
+                    ImagePanel.this.overlayImages[ImagePanel.this.currentOverlayIndex] != null) {
+                    Image currentOverlay = ImagePanel.this.overlayImages[ImagePanel.this.currentOverlayIndex];
+                    int overlayWidth = currentOverlay.getWidth(this);
+                    int panelWidth = this.getWidth();
+                    int x = (panelWidth - overlayWidth) / 2; // Center the overlay
+                    g2d.drawImage(currentOverlay, x, ImagePanel.this.overlayYPosition, this);
+                } else if (ImagePanel.this.currentOverlayIndex != -1 && ImagePanel.this.overlayImages != null && ImagePanel.this.overlayImages.length > 0) {
+                    g2d.setColor(java.awt.Color.YELLOW);
+                    g2d.drawString("Selected overlay image failed to load.", 20, 50);
+                }
 
-            int[] bobx = {-100, -60, 430, -250, 300, 550, -140}; 
-            int[] boby = {225, -160, 0, 0, 500, 300, 460}; 
+                // Draw bobbing images for menu decoration
+                int[] bobx = {-100, -60, 430, -250, 300, 550, -140}; // X positions for bobbing images
+                int[] boby = {225, -160, 0, 0, 500, 300, 460};   // Base Y positions for bobbing images
 
-            for (int i = 0; i < ImagePanel.this.bobbingImages.size(); i++) {
-                Image img = ImagePanel.this.bobbingImages.get(i);
-                if (img != null) {
-                    if (i < bobx.length && i < boby.length && i < ImagePanel.this.bobbingOffsets.length) {
-                        int x = bobx[i];
-                        int y = boby[i] + ImagePanel.this.bobbingOffsets[i];
-                        g.drawImage(img, x, y, this);
+                for (int i = 0; i < ImagePanel.this.bobbingImages.size(); i++) {
+                    Image img = ImagePanel.this.bobbingImages.get(i);
+                    if (img != null) {
+                        if (i < bobx.length && i < boby.length && i < ImagePanel.this.bobbingOffsets.length) {
+                            int x = bobx[i];
+                            int y = boby[i] + ImagePanel.this.bobbingOffsets[i]; // Apply bobbing offset
+                            g2d.drawImage(img, x, y, this);
+                        }
                     }
                 }
             }
+            g2d.dispose(); // Dispose the main Graphics2D copy
         }
-    } 
+    }
 
+    // Constructor for ImagePanel
     public ImagePanel(String backgroundPath, String[] overlayPaths) {
-        this.drawingPanel = new ActualDisplayPanel(); 
-        this.drawingPanel.addKeyListener(this); 
+        this.drawingPanel = new ActualDisplayPanel();
+        this.drawingPanel.addKeyListener(this); // Register this ImagePanel to listen for key events from drawingPanel
 
+        // Load all necessary image resources
         loadBackgroundImage(backgroundPath);
         loadOverlayImages(overlayPaths);
-        loadBobbingImages(); 
-        loadTetrisBlockTypeImages(); 
+        loadBobbingImages();
+        loadTetrisBlockTypeImages();
 
+        // Initialize the current overlay index, ensuring it points to a valid, loaded image if possible
         if (overlayImages == null || overlayImages.length == 0) {
-            currentOverlayIndex = -1;
+            currentOverlayIndex = -1; // No overlays available
         } else {
-            currentOverlayIndex = 0; 
+            currentOverlayIndex = 0; // Start with the first overlay
+            // Find the first non-null overlay image
             while (currentOverlayIndex < overlayImages.length && overlayImages[currentOverlayIndex] == null) {
                 currentOverlayIndex++;
             }
-            if (currentOverlayIndex >= overlayImages.length) { 
+            if (currentOverlayIndex >= overlayImages.length) { // If all overlay images failed to load
                 currentOverlayIndex = -1;
             }
         }
-        startBobbingAnimation();
+        startBobbingAnimation(); // Start the menu decoration animation
     }
 
+    // Loads the images for the 7 Tetris block types
     private void loadTetrisBlockTypeImages() {
-        String basePath = TETRIS_BLOCK_IMAGE_DIRECTORY; 
-        for (int i = 0; i < 7; i++) {
-            String imagePath = basePath + "piece_" + i + ".png"; 
+        String basePath = TETRIS_BLOCK_IMAGE_DIRECTORY;
+        for (int i = 0; i < 7; i++) { // Assuming 7 block types, named piece_0.png to piece_6.png
+            String imagePath = basePath + "piece_" + i + ".png";
             try {
                 File imageFile = new File(imagePath);
                 this.tetrisBlockTypeImages[i] = ImageIO.read(imageFile);
                 if (this.tetrisBlockTypeImages[i] == null && imageFile.exists()) {
-                     System.err.println("Warning: Block image loaded as null from existing file: " + imagePath);
+                    System.err.println("Warning: Block image loaded as null from existing file: " + imagePath);
                 } else if (!imageFile.exists()) {
-                     System.err.println("Error: Block image file not found: " + imagePath);
-                     this.tetrisBlockTypeImages[i] = null; 
+                    System.err.println("Error: Block image file not found: " + imagePath);
+                    this.tetrisBlockTypeImages[i] = null; // Ensure it's null if not found
                 } else {
                     System.out.println("Loaded block image: " + imagePath);
                 }
             } catch (IOException e) {
                 System.err.println("IOException occurred loading block image: " + imagePath + " - " + e.getMessage());
-                this.tetrisBlockTypeImages[i] = null; 
+                this.tetrisBlockTypeImages[i] = null; // Ensure it's null on error
             }
         }
     }
-    
+
+    // Provides access to the drawing panel for the JFrame
     public JPanel getDrawingPanel() { return this.drawingPanel; }
-    
-    private void startBobbingAnimation() { 
-        Timer timer = new Timer(16, e -> { 
+
+    // Starts the animation timer for the bobbing images in the menu
+    private void startBobbingAnimation() {
+        Timer animationTimer = new Timer(16, e -> { // Approximately 60 FPS
             timerTick++;
             for (int i = 0; i < bobbingOffsets.length; i++) {
-                if (i < bobbingSpeeds.length && bobbingSpeeds[i] > 0) { 
-                     bobbingOffsets[i] = (int) (Math.sin((timerTick + i * 20) / (double) bobbingSpeeds[i]) * bobbingAmplitude);
+                if (i < bobbingSpeeds.length && bobbingSpeeds[i] > 0) { // Ensure speed is valid
+                    // Calculate bobbing offset using a sine wave
+                    bobbingOffsets[i] = (int) (Math.sin((timerTick + i * 20) / (double) bobbingSpeeds[i]) * bobbingAmplitude);
                 }
             }
-            drawingPanel.repaint(); 
+            drawingPanel.repaint(); // Redraw the panel to show updated positions
         });
-        timer.start();
+        animationTimer.start();
     }
 
-    private void loadBackgroundImage(String path) { 
+    // Loads the background image
+    private void loadBackgroundImage(String path) {
         try {
             File bgFile = new File(path);
-            this.backgroundImage = ImageIO.read(bgFile); 
-            if (this.backgroundImage == null && bgFile.exists()) { 
+            this.backgroundImage = ImageIO.read(bgFile);
+            if (this.backgroundImage == null && bgFile.exists()) {
                 System.err.println("Warning: Background image loaded as null from existing file: " + path);
             } else if (!bgFile.exists()) {
                 System.err.println("Error: Background image file not found: " + path);
-                this.backgroundImage = null; 
+                this.backgroundImage = null;
             } else {
                 System.out.println("Background image assumed loaded successfully: " + path);
             }
         } catch (IOException e) {
-             System.err.println("IOException occurred during background image load, and was ignored: " + path + " - " + e.getMessage());
-             this.backgroundImage = null; 
+            System.err.println("IOException occurred during background image load: " + path + " - " + e.getMessage());
+            this.backgroundImage = null; // Set to null on error
         }
     }
 
-    private void loadOverlayImages(String[] paths) { 
+    // Loads the overlay images for menu options
+    private void loadOverlayImages(String[] paths) {
         if (paths == null || paths.length == 0) {
-            this.overlayImages = new Image[0];
+            this.overlayImages = new Image[0]; // Initialize as empty if no paths
             return;
         }
         this.overlayImages = new Image[paths.length];
@@ -333,31 +370,33 @@ class ImagePanel implements KeyListener {
                 File imageFile = new File(paths[i]);
                 this.overlayImages[i] = ImageIO.read(imageFile);
                 if (this.overlayImages[i] == null && imageFile.exists()) {
-                     System.err.println("Warning: Overlay image loaded as null from existing file: " + paths[i]);
+                    System.err.println("Warning: Overlay image loaded as null from existing file: " + paths[i]);
                 } else if (!imageFile.exists()) {
-                     System.err.println("Error: Overlay image file not found: " + paths[i]);
-                     this.overlayImages[i] = null;
+                    System.err.println("Error: Overlay image file not found: " + paths[i]);
+                    this.overlayImages[i] = null;
                 }
             } catch (IOException e) {
-                System.err.println("IOException occurred during overlay image load, and was ignored: " + paths[i] + " - " + e.getMessage());
-                this.overlayImages[i] = null; 
+                System.err.println("IOException occurred during overlay image load: " + paths[i] + " - " + e.getMessage());
+                this.overlayImages[i] = null; // Set to null on error
             }
         }
     }
 
-    private void loadBobbingImages() { 
-        bobbingImages.clear(); 
-        String bobbingBasePath = "./res/pieces/glow/"; 
-        for (int i = 1; i <= 7; i++) { 
+    // Loads images for the bobbing decoration in the menu
+    private void loadBobbingImages() {
+        bobbingImages.clear();
+        String bobbingBasePath = "./res/pieces/glow/"; // Path to glowing piece images
+        for (int i = 1; i <= 7; i++) { // Assuming 7 glowing images, named 1.png to 7.png
             String imagePath = bobbingBasePath + i + ".png";
             try {
                 File imageFile = new File(imagePath);
                 Image loadedImage = ImageIO.read(imageFile);
                 if (loadedImage != null) {
                     bobbingImages.add(loadedImage);
+                    // Initialize offset and speed for the newly added bobbing image
                     if (bobbingImages.size() -1 < bobbingOffsets.length && bobbingImages.size() -1 < bobbingSpeeds.length) {
                         bobbingOffsets[bobbingImages.size() - 1] = 0;
-                        bobbingSpeeds[bobbingImages.size() - 1] = (int) (Math.random() * 50 + 50);
+                        bobbingSpeeds[bobbingImages.size() - 1] = (int) (Math.random() * 50 + 50); // Random speed
                     }
                 } else {
                     if (imageFile.exists()) {
@@ -365,55 +404,58 @@ class ImagePanel implements KeyListener {
                     } else {
                         System.err.println("Error: Bobbing image file not found: " + imagePath);
                     }
-                    bobbingImages.add(null); 
+                    bobbingImages.add(null); // Add null if loading failed to maintain list size integrity if needed elsewhere
                 }
             } catch (IOException e) {
-                 System.err.println("IOException occurred during bobbing image load, and was ignored: " + imagePath + " - " + e.getMessage());
-                bobbingImages.add(null); 
+                System.err.println("IOException occurred during bobbing image load: " + imagePath + " - " + e.getMessage());
+                bobbingImages.add(null); // Add null on error
             }
         }
     }
 
-    private void handleSelection() { 
-         if (overlayImages == null || currentOverlayIndex < 0 || currentOverlayIndex >= overlayImages.length || overlayImages[currentOverlayIndex] == null) {
-            System.out.println("No valid option selected or option image assumed loaded but is null.");
+    // Handles menu selection when Enter is pressed
+    private void handleSelection() {
+        if (overlayImages == null || currentOverlayIndex < 0 || currentOverlayIndex >= overlayImages.length || overlayImages[currentOverlayIndex] == null) {
+            System.out.println("No valid option selected or option image is null.");
             return;
         }
+        // Actions based on the selected menu item
         switch (currentOverlayIndex) {
-            case 0: case 1: case 2: 
-                openGameScreen(); break;
-            case 3: 
-                showCreditsOverlay(); break;
-            case 4: 
-                System.exit(0); break;
+            case 0: // Easy
+            case 1: // Medium
+            case 2: // Hard
+                openGameScreen(); // Start the game
+                break;
+            case 3: // Credits
+                showCreditsOverlay(); // Show credits screen
+                break;
+            case 4: // Quit
+                System.exit(0); // Exit the application
+                break;
+            default:
+                System.out.println("Unhandled menu selection index: " + currentOverlayIndex);
+                break;
         }
     }
 
-    // Method to handle actions when a block has landed
+    // Called when a Tetris block lands
     private void handleBlockLanded() {
-        // Add the just-landed block to the list of landed blocks
-        if (this.currentBlock != null) { 
-            this.landedBlocks.add(this.currentBlock);
+        if (this.currentBlock != null) {
+            this.landedBlocks.add(this.currentBlock); // Add current block to the list of landed blocks
             System.out.println("Added current block to landedBlocks. Total landed: " + landedBlocks.size());
         } else {
-            // This case should ideally not happen if currentBlock is managed correctly
-            System.err.println("Warning: handleBlockLanded called but currentBlock was null. No block added to landed list.");
+            System.err.println("Warning: handleBlockLanded called but currentBlock was null.");
         }
 
-        // Placeholder for future logic:
-        // - Collision detection with other landed blocks or game boundaries.
-        // - Check for completed lines and clear them.
-        // - Check for game over conditions (e.g., block lands above visible area).
-
         System.out.println("Block landed. Spawning new block.");
-        currentBlock = spawnNewBlock(); // Spawn the next block
-        moveDownCount = 0;             // Reset the fall counter for the new block
-        
-        drawingPanel.repaint();        // Repaint to show the new block and all landed blocks
+        currentBlock = spawnNewBlock();
+        moveDownCount = 0;             
+
+        drawingPanel.repaint();         // Repaint to show the new block and updated landed blocks
 
         // Restart the game timer for the new block's descent
         if (gameTimer != null) {
-            if (gameTimer.isRunning()) { // Ensure timer is stopped before restarting
+            if (gameTimer.isRunning()) {
                 gameTimer.stop();
             }
             gameTimer.start(); // Start the timer for the new block
@@ -423,210 +465,235 @@ class ImagePanel implements KeyListener {
         }
     }
 
-    private void openGameScreen() {
+    // Switches to the game screen
+    public void openGameScreen() {
         inGameMode = true;
-        loadBackgroundImage("./res/bg/game.png"); 
-        overlayImages = null; 
-        bobbingImages.clear();
-        landedBlocks.clear(); // Clear any blocks from a previous game session
-        currentBlock = spawnNewBlock(); 
-        moveDownCount = 0; 
+        loadBackgroundImage("./res/bg/game.png"); // Load game background
+        overlayImages = null; // Clear menu overlays
+        bobbingImages.clear(); // Clear menu decorations
+        landedBlocks.clear(); // Clear blocks from any previous game session
+        currentBlock = spawnNewBlock();
+        moveDownCount = 0;
 
         if (gameTimer != null && gameTimer.isRunning()) {
             gameTimer.stop();
         }
-        // Initialize and start the game timer for block falling
-        gameTimer = new Timer(1000, ae -> { // Timer ticks every 1000 ms (1 second)
+
+        gameTimer = new Timer(1000, ae -> {
             if (inGameMode && currentBlock != null) {
-                currentBlock.moveDown();      
-                moveDownCount++;              
-                
-                if (moveDownCount >= 18) { // Block has reached its final position by automatic fall
+                currentBlock.moveDown();
+                moveDownCount++;
+                if (currentBlock.y >= GridConfig.GRID_HEIGHT - GridConfig.BLOCK_HEIGHT || moveDownCount >= 18) {
                     if (gameTimer != null && gameTimer.isRunning()) {
-                        gameTimer.stop(); 
+                        gameTimer.stop();
                     }
-                    System.out.println("Block automatically reached bottom after " + moveDownCount + " moves. Handling landed block.");
-                    handleBlockLanded(); // Process landed block and spawn the next one
-                }
-                // Repaint after every automatic move, unless handleBlockLanded will also repaint.
-                // If the block just landed, handleBlockLanded will repaint. Otherwise, repaint here.
-                if (moveDownCount < 18) { // Avoid double repaint if block just landed
-                   drawingPanel.repaint();
+                    System.out.println("Block automatically reached bottom or max fall count. Handling landed block.");
+                    handleBlockLanded();
+                } else {
+                    drawingPanel.repaint();
                 }
             }
         });
-        gameTimer.start(); 
+        gameTimer.start();
 
         System.out.println("Switched to game mode. Initial X: " + (currentBlock != null ? currentBlock.x : "null"));
-        drawingPanel.repaint(); 
+        drawingPanel.repaint();
     }
-  
+
     private TetrisBlock spawnNewBlock() {
-        TetrisBlock newBlock = new TetrisBlock(); 
-        
-        // Use the Random instance to get a random index for the block type
-        // tetrisBlockTypeImages.length should be 7 if all images are loaded correctly.
-        // random.nextInt(N) gives a number from 0 to N-1.
-        int imageIndex = random.nextInt(tetrisBlockTypeImages.length); 
-        
-        if (imageIndex >= 0 && imageIndex < tetrisBlockTypeImages.length && tetrisBlockTypeImages[imageIndex] != null) {
-            newBlock.blockImage = tetrisBlockTypeImages[imageIndex];
-            System.out.println("Spawning block with image index: " + imageIndex);
-        } else {
-            System.err.println("Error: Randomly selected image index " + imageIndex + " is out of bounds or image not loaded. Attempting fallback.");
-            newBlock.blockImage = null; 
-            // Fallback: find the first available image
-            for(int i=0; i < tetrisBlockTypeImages.length; i++){
-                if(tetrisBlockTypeImages[i] != null){
-                    newBlock.blockImage = tetrisBlockTypeImages[i];
-                    imageIndex = i; // Update imageIndex to reflect the actual image used
-                    System.out.println("Fell back to block image index: " + i);
-                    break;
+        TetrisBlock newBlock = new TetrisBlock();
+        int imageIndex = -1;
+
+        if (tetrisBlockTypeImages != null && tetrisBlockTypeImages.length > 0) {
+            imageIndex = random.nextInt(tetrisBlockTypeImages.length);
+
+            if (tetrisBlockTypeImages[imageIndex] != null) {
+                newBlock.blockImage = tetrisBlockTypeImages[imageIndex];
+                System.out.println("Spawning block with image index: " + imageIndex);
+            } else {
+                System.err.println("Warning: Randomly selected image at index " + imageIndex + " is null. Attempting fallback.");
+                boolean foundFallback = false;
+                for (int i = 0; i < tetrisBlockTypeImages.length; i++) {
+                    if (tetrisBlockTypeImages[i] != null) {
+                        newBlock.blockImage = tetrisBlockTypeImages[i];
+                        imageIndex = i;
+                        System.out.println("Fell back to block image index: " + i);
+                        foundFallback = true;
+                        break;
+                    }
+                }
+                if (!foundFallback) {
+                    System.err.println("CRITICAL: No block images available to spawn. newBlock.blockImage will be null.");
+                    newBlock.blockImage = null;
+                    imageIndex = 0;
                 }
             }
-            if(newBlock.blockImage == null){
-                 System.err.println("CRITICAL: No block images available to spawn. Game may be unplayable.");
-            }
+        } else {
+            System.err.println("CRITICAL: tetrisBlockTypeImages array is null or empty. Cannot spawn new block.");
+            newBlock.blockImage = null;
+            imageIndex = 0; // Default to prevent switch errors
         }
 
-        // Set pivot points based on the (potentially fallback) imageIndex
-        // Ensure pivot points are correctly set even if a fallback image was used.
         switch (imageIndex) {
-            case 0: // Z-shape 
-                newBlock.sourceImagePivotX = 45;
-                newBlock.sourceImagePivotY = 45;
+            case 0: // Z piece
+                newBlock.sourceImagePivotX = 45; newBlock.sourceImagePivotY = 45;
+                newBlock.visualWidthInGridUnits = 1.0;
+                newBlock.minX = 1.0;
+                newBlock.maxX = GridConfig.GRID_WIDTH;
                 break;
-            case 1: // T-shape 
-                newBlock.sourceImagePivotX = 1.55 * 45;
-                newBlock.sourceImagePivotY = 0.5 * 45;
+            case 1: // T piece
+                newBlock.sourceImagePivotX = 1.55 * 45; newBlock.sourceImagePivotY = 0.5 * 45;
+                newBlock.visualWidthInGridUnits = 3.0;
+                newBlock.minX = 0.0;
+                newBlock.maxX = GridConfig.GRID_WIDTH;
                 break;
-            case 2: // S-shape 
-                newBlock.sourceImagePivotX = 45;
-                newBlock.sourceImagePivotY = 45;
+            case 2: // S piece
+                newBlock.sourceImagePivotX = 45; newBlock.sourceImagePivotY = 45;
+                newBlock.visualWidthInGridUnits = 0.0;
+                newBlock.minX = 0.0;
+                newBlock.maxX = GridConfig.GRID_WIDTH;
                 break;
-            case 3: // L-shape 
-                newBlock.sourceImagePivotX = 45;
-                newBlock.sourceImagePivotY = 45;
+            case 3: // L piece
+                newBlock.sourceImagePivotX = 45; newBlock.sourceImagePivotY = 45;
+                newBlock.visualWidthInGridUnits = 0.0; 
+                newBlock.minX = 0.5;
+                newBlock.maxX = GridConfig.GRID_WIDTH - 0.5;
                 break;
-            case 4: // J-shape 
-                newBlock.sourceImagePivotX = 45;
-                newBlock.sourceImagePivotY = 45;
+            case 4: // J piece
+                newBlock.sourceImagePivotX = 45; newBlock.sourceImagePivotY = 45;
+                newBlock.visualWidthInGridUnits = 2.0;
+                newBlock.minX = 0.5;
+                newBlock.maxX = GridConfig.GRID_WIDTH - 0.5;
                 break;
-            case 5: // I-shape 
-                newBlock.sourceImagePivotX = (4 * 47) / 2.75; 
-                newBlock.sourceImagePivotY = (1 * 47) / 2.1; 
+            case 5: // I piece (line)
+                newBlock.sourceImagePivotX = (4 * 47) / 2.75; newBlock.sourceImagePivotY = (1 * 47) / 2.1; 
+                newBlock.visualWidthInGridUnits = 4.0;
+                newBlock.minX = 0.5;
+                newBlock.maxX = GridConfig.GRID_WIDTH - 3.5;
                 break;
-            case 6: // O-shape 
-                newBlock.sourceImagePivotX = (2 * 46) / 2.0; 
-                newBlock.sourceImagePivotY = (2 * 46) / 2.0; 
+            case 6: // O piece (square)
+                newBlock.sourceImagePivotX = (2 * 46) / 2.0; newBlock.sourceImagePivotY = (2 * 46) / 2.0;
+                newBlock.visualWidthInGridUnits = 2.0;
+                newBlock.minX = 1.0;
+                newBlock.maxX = GridConfig.BLOCK_WIDTH - 1.0;
                 break;
-            default: 
-                // This default case might be hit if no block image could be loaded at all
-                // and imageIndex remains at its initial problematic value or the fallback loop failed.
-                if(newBlock.blockImage != null){ 
-                    System.err.println("Warning: Unexpected imageIndex " + imageIndex + " in spawnNewBlock switch, but an image was loaded. Using default pivot 0,0.");
-                } else {
-                    System.err.println("Warning: Unexpected imageIndex " + imageIndex + " and no block image loaded. Using default pivot 0,0.");
-                }
-                newBlock.sourceImagePivotX = 0; 
-                newBlock.sourceImagePivotY = 0;
+                
+            default:
+                System.err.println("Warning: spawnNewBlock imageIndex " + imageIndex + " is unexpected. Using default pivot/width.");
+                newBlock.sourceImagePivotX = 0; newBlock.sourceImagePivotY = 0;
+                newBlock.visualWidthInGridUnits = 1.0;
+                newBlock.minX = 0.0;
+                newBlock.maxX = GridConfig.GRID_WIDTH;
                 break;
+        }
+
+        newBlock.x = (GridConfig.GRID_WIDTH - newBlock.visualWidthInGridUnits) / 2.0;
+        newBlock.y = 0.0;
+
+        if (newBlock.blockImage == null) {
+            System.err.println("Spawned block with null image. Game might not be playable. ImageIndex was: " + imageIndex);
         }
         return newBlock;
     }
 
-    private void showCreditsOverlay() { 
+
+    private void showCreditsOverlay() {
         System.out.println("Showing credits...");
         JFrame creditsFrame = new JFrame("Credits");
-        ImagePanel creditsLogic = new ImagePanel("./res/credits.png", null); 
-        
-        creditsFrame.setContentPane(creditsLogic.getDrawingPanel()); 
+        ImagePanel creditsLogic = new ImagePanel("./res/credits.png", null); // Assuming credits.png is a full screen image
+
+        creditsFrame.setContentPane(creditsLogic.getDrawingPanel());
         creditsFrame.setSize(720, 720);
         creditsFrame.setResizable(false);
         creditsFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        creditsFrame.setLocationRelativeTo(this.drawingPanel); 
+        creditsFrame.setLocationRelativeTo(this.drawingPanel);
         creditsFrame.setVisible(true);
 
-        creditsLogic.getDrawingPanel().addMouseListener(new MouseAdapter() { 
+        creditsLogic.getDrawingPanel().addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 creditsFrame.dispose();
             }
         });
-        creditsLogic.getDrawingPanel().requestFocusInWindow();
+        creditsLogic.getDrawingPanel().requestFocusInWindow(); // Ensure it can receive events if needed
     }
 
-    @Override public void keyTyped(KeyEvent e) {}
+    @Override public void keyTyped(KeyEvent e) { /* Not used */ }
 
-    @Override public void keyPressed(KeyEvent e) { 
+    @Override public void keyPressed(KeyEvent e) {
+        int keyCode = e.getKeyCode();
+
         if (inGameMode) {
-            if (currentBlock != null) { 
-                int keyCode = e.getKeyCode();
-                boolean repaintAfterMove = false; 
+            if (currentBlock != null) {
+                boolean repaintAfterMove = false;
 
-                if (gameTimer != null && gameTimer.isRunning()) { 
+                if (gameTimer != null && gameTimer.isRunning()) {
                     if (keyCode == KeyEvent.VK_LEFT || keyCode == KeyEvent.VK_A) {
                         currentBlock.moveLeft();
                         repaintAfterMove = true;
                     } else if (keyCode == KeyEvent.VK_RIGHT || keyCode == KeyEvent.VK_D) {
                         currentBlock.moveRight();
                         repaintAfterMove = true;
-                    } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) { 
+                    } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
                         currentBlock.rotate();
                         repaintAfterMove = true;
                     }
+
                 }
 
                 if (keyCode == KeyEvent.VK_SPACE) {
                     if (moveDownCount < 18) { 
                         if (gameTimer != null && gameTimer.isRunning()) {
-                            gameTimer.stop(); 
+                            gameTimer.stop();
                         }
-                        
-                        int remainingSteps = 18 - moveDownCount;
-                        currentBlock.y += remainingSteps * 1.08; 
 
-                        moveDownCount = 18; 
+                        int remainingSteps = 18 - moveDownCount;
+                        currentBlock.y += remainingSteps * GridConfig.BLOCK_HEIGHT;
+                        if (currentBlock.y >= GridConfig.GRID_HEIGHT - GridConfig.BLOCK_HEIGHT) {
+                             currentBlock.y = GridConfig.GRID_HEIGHT - GridConfig.BLOCK_HEIGHT;
+                        }
+
+
+                        moveDownCount = 18;
                         System.out.println("Block hard dropped. Handling landed block.");
                         handleBlockLanded(); 
-                       
                     }
-                } else if (repaintAfterMove) { 
-                    drawingPanel.repaint(); 
+                } else if (repaintAfterMove) {
+                    drawingPanel.repaint();
                 }
             }
-            return; 
-        }
+        } else {
+            if (overlayImages == null || overlayImages.length == 0) return;
 
+            int numOverlays = overlayImages.length;
+            int initialIndex = currentOverlayIndex;
+            int nextIndex = currentOverlayIndex;
 
-        int keyCode = e.getKeyCode();
-        if (overlayImages == null || overlayImages.length == 0) return;
-
-        int numOverlays = overlayImages.length;
-        int initialIndex = currentOverlayIndex;
-        int nextIndex = currentOverlayIndex;
-
-        if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S) {
-            do {
-                nextIndex = (nextIndex + 1) % numOverlays;
-            } while (overlayImages[nextIndex] == null && nextIndex != initialIndex);
-        } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
-            do {
-                nextIndex = (nextIndex - 1 + numOverlays) % numOverlays;
-            } while (overlayImages[nextIndex] == null && nextIndex != initialIndex);
-        }
-
-        if ((keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S)) {
-             if (overlayImages[nextIndex] != null) { 
-                 currentOverlayIndex = nextIndex;
-                 drawingPanel.repaint(); 
-            } else if (nextIndex == initialIndex && overlayImages[initialIndex] == null) {
-            } else if (overlayImages[initialIndex] != null) {
-                currentOverlayIndex = initialIndex; 
+            if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S) {
+                do {
+                    nextIndex = (nextIndex + 1) % numOverlays;
+                } while (overlayImages[nextIndex] == null && nextIndex != initialIndex); // Skip null/unloaded images
+            } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
+                // Move to the previous valid overlay image
+                do {
+                    nextIndex = (nextIndex - 1 + numOverlays) % numOverlays;
+                } while (overlayImages[nextIndex] == null && nextIndex != initialIndex); // Skip null/unloaded images
             }
-        } else if (keyCode == KeyEvent.VK_ENTER) { 
-            handleSelection();
+
+            // Update current selection if a valid next option was found
+            if ((keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S)) {
+                if (overlayImages[nextIndex] != null) {
+                    currentOverlayIndex = nextIndex;
+                    drawingPanel.repaint();
+                } else if (nextIndex == initialIndex && overlayImages[initialIndex] == null) {
+                    // All images might be null, do nothing
+                } else if (overlayImages[initialIndex] != null) {
+                    currentOverlayIndex = initialIndex; // Stay on current if loop couldn't find other valid
+                }
+            } else if (keyCode == KeyEvent.VK_ENTER) {
+                handleSelection(); // Handle menu item selection
+            }
         }
     }
-    @Override public void keyReleased(KeyEvent e) {}
+    @Override public void keyReleased(KeyEvent e) { /* Not used */ }
 }
