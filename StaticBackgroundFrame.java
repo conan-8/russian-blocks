@@ -17,17 +17,17 @@ import javax.swing.Timer;
 
 
 class TetrisBlock {
-    public double x;      // The x-coordinate of the image's top-left corner on the game grid
-    public double y;      // The y-coordinate of the image's top-left corner on the game grid
+    public double x;      // The x-coordinate 
+    public double y;      // The y-coordinate 
     public Image blockImage; // Image for the entire block/piece
-    public int rotationAngle = 0; // Current rotation angle in degrees (0, 90, 180, 270)
+    public int rotationAngle = 0; // Current angle in degrees (0, 90, 180, 270)
     public double sourceImagePivotX; // X pivot point on the original source image (in pixels)
     public double sourceImagePivotY; // Y pivot point on the original source image (in pixels)
 
 
     public TetrisBlock() { 
         this.x = 1.0;  //  initial X, defined by user
-        this.y = 0.85; //  initial Y
+        this.y = 0.85; //  initial Y, 
         this.blockImage = null; // Will be set after creation by ImagePanel
         this.sourceImagePivotX = 0; // Default pivot, will be set in spawnNewBlock
         this.sourceImagePivotY = 0; // Default pivot
@@ -52,7 +52,6 @@ class TetrisBlock {
     }
 }
 
-// Main class to launch the application
 public class StaticBackgroundFrame {
     public static void main(String[] args) {
         String backgroundPath = "./res/bg/mainmenu.png"; 
@@ -86,33 +85,32 @@ public class StaticBackgroundFrame {
 
 class ImagePanel implements KeyListener { 
     
-    // !!! EDIT THIS LINE TO CHANGE THE DIRECTORY FOR THE 7 BLOCK PNGs !!!
+
     private static final String TETRIS_BLOCK_IMAGE_DIRECTORY = "./res/pieces/"; 
-    // Assumes piece images are named piece_0.png, piece_1.png, ..., piece_6.png
+
 
     private boolean inGameMode = false;
     private TetrisBlock currentBlock = null;
-    private List<TetrisBlock> landedBlocks = new ArrayList<>(); // Stores all blocks that have landed
+    private List<TetrisBlock> landedBlocks = new ArrayList<>(); 
 
     private Image backgroundImage;
     private Image[] overlayImages;
     private int currentOverlayIndex = 0;
     private final int overlayYPosition = 275;
 
-    private final List<Image> bobbingImages = new ArrayList<>(); // For menu decoration
+    private final List<Image> bobbingImages = new ArrayList<>(); 
     private final int[] bobbingOffsets = new int[7]; 
     private final int[] bobbingSpeeds = new int[7];  
     private final int bobbingAmplitude = 20;
     private int timerTick = 0;
 
-    private final Random random = new Random(); // Random number generator for selecting blocks
+    private final Random random = new Random(); 
     private final ActualDisplayPanel drawingPanel;
 
-    // Array to store the 7 images for the different "block" types/overlays
     private Image[] tetrisBlockTypeImages = new Image[7];
 
-    private Timer gameTimer; // Timer for game ticks (e.g., block falling)
-    private int moveDownCount = 0; // Counter for how many times the block has moved down
+    private Timer gameTimer; 
+    private int moveDownCount = 0; 
 
     private class ActualDisplayPanel extends JPanel {
         public ActualDisplayPanel() {
@@ -126,20 +124,18 @@ class ImagePanel implements KeyListener {
             super.paintComponent(g); 
 
             if (ImagePanel.this.inGameMode) {
-                // Draw background image first
                 if (ImagePanel.this.backgroundImage != null) {
                     g.drawImage(ImagePanel.this.backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
                 } else {
-                    g.setColor(java.awt.Color.BLACK); // Fallback background
+                    g.setColor(java.awt.Color.BLACK); 
                     g.fillRect(0, 0, getWidth(), getHeight());
                 }
 
-                final int blockSize = 30; // Define block size for consistent rendering
+                final int blockSize = 30; 
 
-                // --- Start: Draw all landed blocks ---
                 for (TetrisBlock landedBlock : ImagePanel.this.landedBlocks) {
                     if (landedBlock != null && landedBlock.blockImage != null) {
-                        Graphics2D g2d_landed = (Graphics2D) g.create(); // Use a new graphics context for each landed block
+                        Graphics2D g2d_landed = (Graphics2D) g.create();
                         
                         int drawX = (int)(landedBlock.x * blockSize);
                         int drawY = (int)(landedBlock.y * blockSize);
@@ -148,26 +144,24 @@ class ImagePanel implements KeyListener {
                         int naturalHeight = landedBlock.blockImage.getHeight(this);
 
                         if (naturalWidth > 0 && naturalHeight > 0) { 
-                            int scaledWidth = (int)(naturalWidth * 0.7); // Apply scaling
-                            int scaledHeight = (int)(naturalHeight * 0.7); // Apply scaling
+                            int scaledWidth = (int)(naturalWidth * 0.7); 
+                            int scaledHeight = (int)(naturalHeight * 0.7); 
 
-                            // Calculate pivot for rotation relative to the block's position on the panel
                             double absolutePivotX = drawX + (landedBlock.sourceImagePivotX * 0.7);
                             double absolutePivotY = drawY + (landedBlock.sourceImagePivotY * 0.7);
 
                             g2d_landed.rotate(Math.toRadians(landedBlock.rotationAngle), absolutePivotX, absolutePivotY);
                             g2d_landed.drawImage(landedBlock.blockImage, drawX, drawY, scaledWidth, scaledHeight, this); 
                         }
-                        g2d_landed.dispose(); // Dispose of the graphics context copy
+                        g2d_landed.dispose(); 
                     }
                 }
-                // --- End: Draw all landed blocks ---
 
-                // Draw the current falling block (if it exists)
+
                 if (ImagePanel.this.currentBlock != null) {
                     TetrisBlock block = ImagePanel.this.currentBlock;
                     if (block.blockImage != null) {
-                        Graphics2D g2d_current = (Graphics2D) g.create(); // Use a new graphics context for the current block
+                        Graphics2D g2d_current = (Graphics2D) g.create(); 
 
                         int drawX = (int)(block.x * blockSize); 
                         int drawY = (int)(block.y * blockSize);
@@ -179,7 +173,7 @@ class ImagePanel implements KeyListener {
                             int scaledWidth = (int)(naturalWidth * 0.7); // Apply scaling
                             int scaledHeight = (int)(naturalHeight * 0.7); // Apply scaling
 
-                            // Calculate pivot for rotation relative to the block's position on the panel
+
                             double absolutePivotX = drawX + (block.sourceImagePivotX * 0.7);
                             double absolutePivotY = drawY + (block.sourceImagePivotY * 0.7);
 
@@ -188,13 +182,13 @@ class ImagePanel implements KeyListener {
                         } else {
                             System.err.println("Warning: currentBlock.blockImage has invalid dimensions (0 or less).");
                         }
-                        g2d_current.dispose(); // Dispose of the graphics context copy
+                        g2d_current.dispose(); 
                     } 
                 }
-                return; // End of inGameMode drawing
+                return; 
             }
 
-            // --- Menu Mode Rendering (remains unchanged) ---
+
             if (ImagePanel.this.backgroundImage != null) {
                 g.drawImage(ImagePanel.this.backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
             } else {
@@ -379,21 +373,16 @@ class ImagePanel implements KeyListener {
         }
     }
 
-    // Method to handle actions when a block has landed
+
     private void handleBlockLanded() {
-        // Add the just-landed block to the list of landed blocks
+
         if (this.currentBlock != null) { 
             this.landedBlocks.add(this.currentBlock);
             System.out.println("Added current block to landedBlocks. Total landed: " + landedBlocks.size());
         } else {
-            // This case should ideally not happen if currentBlock is managed correctly
+
             System.err.println("Warning: handleBlockLanded called but currentBlock was null. No block added to landed list.");
         }
-
-        // Placeholder for future logic:
-        // - Collision detection with other landed blocks or game boundaries.
-        // - Check for completed lines and clear them.
-        // - Check for game over conditions (e.g., block lands above visible area).
 
         System.out.println("Block landed. Spawning new block.");
         currentBlock = spawnNewBlock(); // Spawn the next block
@@ -401,7 +390,7 @@ class ImagePanel implements KeyListener {
         
         drawingPanel.repaint();        // Repaint to show the new block and all landed blocks
 
-        // Restart the game timer for the new block's descent
+
         if (gameTimer != null) {
             if (gameTimer.isRunning()) { // Ensure timer is stopped before restarting
                 gameTimer.stop();
