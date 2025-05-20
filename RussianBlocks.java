@@ -159,7 +159,7 @@ class GameRendererPanel extends JPanel {
 }
 
 
-public class StaticBackgroundFrame {
+public class RussianBlocks {
     public static void main(String[] args) {
         String backgroundPath = "./res/bg/mainmenu.png";
         String[] overlayPaths = {
