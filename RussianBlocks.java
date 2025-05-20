@@ -18,8 +18,8 @@ import javax.swing.Timer;
 class GameRendererPanel extends JPanel {
     private ImagePanel imagePanel;
     public static final int BLOCK_SIZE = 33; 
-    public static final int GAME_AREA_X_OFFSET = ((720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2) - 168; 
-    public static final int GAME_AREA_Y_OFFSET = ((720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2) -17 ;  
+    public static final int GAME_AREA_X_OFFSET = ((720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2) - 178; 
+    public static final int GAME_AREA_Y_OFFSET = ((720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2) -14 ;  
 
 
     public GameRendererPanel(ImagePanel imagePanel) {
