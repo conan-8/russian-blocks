@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -16,13 +17,32 @@ import javax.swing.Timer;
 
 class GameRendererPanel extends JPanel {
     private ImagePanel imagePanel;
+    public static final int BLOCK_SIZE = 33; 
+    // Original X_OFFSET = (720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2; // (720 - 330) / 2 = 195
+    // Original Y_OFFSET = (720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2; // (720 - 660) / 2 = 30
+    public static final int GAME_AREA_X_OFFSET = ((720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2) - 170; // 195 - 170 = 25
+    public static final int GAME_AREA_Y_OFFSET = ((720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2) - 7;   // 30 - 7 = 23
+
 
     public GameRendererPanel(ImagePanel imagePanel) {
         super();
         this.imagePanel = imagePanel;
         this.setLayout(null);
         this.setFocusable(true);
-        this.setBackground(java.awt.Color.BLACK);
+        this.setBackground(java.awt.Color.DARK_GRAY); 
+    }
+
+    private java.awt.Color getColorForType(int type) {
+        switch (type) {
+            case 1: return java.awt.Color.decode("#00FFFF"); 
+            case 2: return java.awt.Color.GREEN;   
+            case 3: return java.awt.Color.ORANGE;  
+            case 4: return java.awt.Color.BLUE;    
+            case 5: return java.awt.Color.RED;     
+            case 6: return java.awt.Color.YELLOW;  
+            case 7: return java.awt.Color.MAGENTA; 
+            default: return java.awt.Color.LIGHT_GRAY;
+        }
     }
 
     @Override
@@ -37,7 +57,65 @@ class GameRendererPanel extends JPanel {
                 g2d.setColor(java.awt.Color.BLACK);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
             }
-        } else {
+
+            g2d.setColor(java.awt.Color.GRAY);
+            g2d.drawRect(GAME_AREA_X_OFFSET -1, GAME_AREA_Y_OFFSET -1,
+                         ImagePanel.GRID_COLS * BLOCK_SIZE +1, ImagePanel.GRID_ROWS * BLOCK_SIZE +1);
+
+            int[][] gameGrid = imagePanel.getGameGrid();
+            Image[] squareBlockImages = imagePanel.getSquareBlockImages();
+            if (gameGrid != null && squareBlockImages != null) {
+                for (int r = 0; r < ImagePanel.GRID_ROWS; r++) {
+                    for (int c = 0; c < ImagePanel.GRID_COLS; c++) {
+                        if (gameGrid[r][c] != 0) {
+                            int blockType = gameGrid[r][c];
+                            if (blockType > 0 && blockType < squareBlockImages.length) {
+                                if (squareBlockImages[blockType] != null) {
+                                    g2d.drawImage(squareBlockImages[blockType],
+                                            GAME_AREA_X_OFFSET + c * BLOCK_SIZE,
+                                            GAME_AREA_Y_OFFSET + r * BLOCK_SIZE,
+                                            BLOCK_SIZE, BLOCK_SIZE, this);
+                                } else {
+                                    g2d.setColor(getColorForType(blockType));
+                                    g2d.fillRect(GAME_AREA_X_OFFSET + c * BLOCK_SIZE,
+                                                 GAME_AREA_Y_OFFSET + r * BLOCK_SIZE,
+                                                 BLOCK_SIZE, BLOCK_SIZE);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            int[][] currentPieceShape = imagePanel.getCurrentPieceShape();
+            if (currentPieceShape != null && squareBlockImages != null) {
+                int currentPieceGridX = imagePanel.getCurrentPieceGridX();
+                int currentPieceGridY = imagePanel.getCurrentPieceGridY();
+                int currentPieceType = imagePanel.getCurrentPieceType();
+
+                if (currentPieceType > 0 && currentPieceType < squareBlockImages.length) {
+                    Image blockImageToDraw = squareBlockImages[currentPieceType];
+                    for (int r = 0; r < currentPieceShape.length; r++) {
+                        for (int c = 0; c < currentPieceShape[r].length; c++) {
+                            if (currentPieceShape[r][c] != 0) {
+                                if (blockImageToDraw != null) {
+                                    g2d.drawImage(blockImageToDraw,
+                                            GAME_AREA_X_OFFSET + (currentPieceGridX + c) * BLOCK_SIZE,
+                                            GAME_AREA_Y_OFFSET + (currentPieceGridY + r) * BLOCK_SIZE,
+                                            BLOCK_SIZE, BLOCK_SIZE, this);
+                                } else {
+                                    g2d.setColor(getColorForType(currentPieceType));
+                                    g2d.fillRect(GAME_AREA_X_OFFSET + (currentPieceGridX + c) * BLOCK_SIZE,
+                                                 GAME_AREA_Y_OFFSET + (currentPieceGridY + r) * BLOCK_SIZE,
+                                                 BLOCK_SIZE, BLOCK_SIZE);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        } else { 
             if (this.imagePanel.getBackgroundImage() != null) {
                 g2d.drawImage(this.imagePanel.getBackgroundImage(), 0, 0, this.getWidth(), this.getHeight(), this);
             } else {
@@ -90,7 +168,7 @@ public class RussianBlocks {
             "./res/options/quit.png"
         };
 
-        JFrame frame = new JFrame("Main Menu Example");
+        JFrame frame = new JFrame("Tetris Game Example");
         ImagePanel logicController = new ImagePanel(backgroundPath, overlayPaths);
 
         frame.setContentPane(logicController.getDrawingPanel());
@@ -111,6 +189,20 @@ public class RussianBlocks {
 }
 
 class ImagePanel implements KeyListener {
+    public static final int GRID_ROWS = 20;
+    public static final int GRID_COLS = 10;
+    private int[][] gameGrid = new int[GRID_ROWS][GRID_COLS];
+    private Image[] squareBlockImages = new Image[8]; 
+
+    private List<List<int[][]>> pieceDefinitions;
+    private int currentPieceType; 
+    private int currentPieceRotation;
+    private int currentPieceGridX;
+    private int currentPieceGridY;
+    private int[][] currentPieceShape; 
+
+    private Random random = new Random();
+    private Timer gameTimer;
 
     boolean inGameMode = false;
     Image backgroundImage;
@@ -131,7 +223,9 @@ class ImagePanel implements KeyListener {
 
         loadBackgroundImage(backgroundPath);
         loadOverlayImages(overlayPaths);
-        loadBobbingImages();
+        loadBobbingImages(); 
+        loadSquareBlockImages(); 
+        initializePieceDefinitions();
 
         if (this.overlayImages == null || this.overlayImages.length == 0) {
             this.currentOverlayIndex = -1;
@@ -147,6 +241,159 @@ class ImagePanel implements KeyListener {
         startBobbingAnimation();
     }
 
+    private void initializePieceDefinitions() {
+        pieceDefinitions = new ArrayList<>();
+        
+        List<int[][]> tPiece = new ArrayList<>();
+        tPiece.add(new int[][]{{0,1,0}, {1,1,1}});
+        tPiece.add(new int[][]{{1,0}, {1,1}, {1,0}});
+        tPiece.add(new int[][]{{1,1,1}, {0,1,0}});
+        tPiece.add(new int[][]{{0,1}, {1,1}, {0,1}});
+        pieceDefinitions.add(tPiece);
+
+        List<int[][]> sPiece = new ArrayList<>();
+        sPiece.add(new int[][]{{0,2,2}, {2,2,0}});
+        sPiece.add(new int[][]{{2,0}, {2,2}, {0,2}});
+        pieceDefinitions.add(sPiece);
+
+        List<int[][]> lPiece = new ArrayList<>();
+        lPiece.add(new int[][]{{0,0,3}, {3,3,3}});
+        lPiece.add(new int[][]{{3,0}, {3,0}, {3,3}});
+        lPiece.add(new int[][]{{3,3,3}, {3,0,0}});
+        lPiece.add(new int[][]{{3,3}, {0,3}, {0,3}});
+        pieceDefinitions.add(lPiece);
+
+        List<int[][]> jPiece = new ArrayList<>();
+        jPiece.add(new int[][]{{4,0,0}, {4,4,4}});
+        jPiece.add(new int[][]{{4,4}, {4,0}, {4,0}});
+        jPiece.add(new int[][]{{4,4,4}, {0,0,4}});
+        jPiece.add(new int[][]{{0,4}, {0,4}, {4,4}});
+        pieceDefinitions.add(jPiece);
+
+        List<int[][]> iPiece = new ArrayList<>();
+        iPiece.add(new int[][]{{5,5,5,5}});
+        iPiece.add(new int[][]{{5},{5},{5},{5}});
+        pieceDefinitions.add(iPiece);
+
+        List<int[][]> oPiece = new ArrayList<>();
+        oPiece.add(new int[][]{{6,6}, {6,6}});
+        pieceDefinitions.add(oPiece);
+
+        List<int[][]> zPiece = new ArrayList<>();
+        zPiece.add(new int[][]{{7,7,0}, {0,7,7}});
+        zPiece.add(new int[][]{{0,7}, {7,7}, {7,0}});
+        pieceDefinitions.add(zPiece);
+    }
+
+    private void loadSquareBlockImages() {
+        String basePath = "./res/square/";
+        for (int i = 1; i <= 7; i++) {
+            String imagePath = basePath + i + ".png";
+            File imageFile = new File(imagePath);
+            if (!imageFile.exists()) {
+                System.err.println("Warning: Square block image not found: " + imagePath);
+                squareBlockImages[i] = null;
+                continue;
+            }
+            try {
+                squareBlockImages[i] = ImageIO.read(imageFile);
+            } catch (IOException e) {
+                System.err.println("Error loading square block image: " + imagePath + " - " + e.getMessage());
+                squareBlockImages[i] = null;
+            }
+        }
+    }
+    
+    private void spawnNewPiece() {
+        currentPieceType = random.nextInt(7) + 1; 
+        currentPieceRotation = 0;
+        currentPieceShape = getPieceShape(currentPieceType -1 , currentPieceRotation); 
+        currentPieceGridX = GRID_COLS / 2 - currentPieceShape[0].length / 2;
+        currentPieceGridY = 0; 
+
+        if (!canMove(currentPieceGridX, currentPieceGridY, currentPieceShape)) {
+            inGameMode = false; 
+            if(gameTimer != null) gameTimer.stop();
+            System.out.println("GAME OVER");
+            loadBackgroundImage("./res/bg/mainmenu.png"); 
+            drawingPanel.repaint(); 
+        }
+    }
+
+    private int[][] getPieceShape(int typeIndex, int rotationIndex) {
+        List<int[][]> rotations = pieceDefinitions.get(typeIndex);
+        return rotations.get(rotationIndex % rotations.size());
+    }
+
+    private boolean canMove(int targetX, int targetY, int[][] pieceShape) {
+        for (int r = 0; r < pieceShape.length; r++) {
+            for (int c = 0; c < pieceShape[r].length; c++) {
+                if (pieceShape[r][c] != 0) { 
+                    int actualGridX = targetX + c;
+                    int actualGridY = targetY + r;
+
+                    if (actualGridX < 0 || actualGridX >= GRID_COLS || actualGridY < 0 || actualGridY >= GRID_ROWS) {
+                        return false; 
+                    }
+                    if (actualGridY >=0 && gameGrid[actualGridY][actualGridX] != 0) { 
+                        return false; 
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private void landPiece() {
+        for (int r = 0; r < currentPieceShape.length; r++) {
+            for (int c = 0; c < currentPieceShape[r].length; c++) {
+                if (currentPieceShape[r][c] != 0) {
+                    int actualGridX = currentPieceGridX + c;
+                    int actualGridY = currentPieceGridY + r;
+                    if (actualGridY >= 0 && actualGridY < GRID_ROWS && actualGridX >=0 && actualGridX < GRID_COLS) {
+                        gameGrid[actualGridY][actualGridX] = currentPieceType;
+                    }
+                }
+            }
+        }
+        clearLines();
+    }
+    
+    private void clearLines() {
+        for (int r = GRID_ROWS - 1; r >= 0; r--) {
+            boolean lineFull = true;
+            for (int c = 0; c < GRID_COLS; c++) {
+                if (gameGrid[r][c] == 0) {
+                    lineFull = false;
+                    break;
+                }
+            }
+            if (lineFull) {
+                for (int rowToShift = r; rowToShift > 0; rowToShift--) {
+                    for (int col = 0; col < GRID_COLS; col++) {
+                        gameGrid[rowToShift][col] = gameGrid[rowToShift - 1][col];
+                    }
+                }
+                for (int col = 0; col < GRID_COLS; col++) {
+                    gameGrid[0][col] = 0;
+                }
+                r++; 
+            }
+        }
+    }
+
+
+    private void movePieceDown() {
+        if (currentPieceShape == null) return; 
+        if (canMove(currentPieceGridX, currentPieceGridY + 1, currentPieceShape)) {
+            currentPieceGridY++;
+        } else {
+            landPiece();
+            spawnNewPiece();
+        }
+    }
+
+
     public boolean isInGameMode() { return inGameMode; }
     public Image getBackgroundImage() { return backgroundImage; }
     public Image[] getOverlayImages() { return overlayImages; }
@@ -154,8 +401,15 @@ class ImagePanel implements KeyListener {
     public int getOverlayYPosition() { return overlayYPosition; }
     public List<Image> getBobbingImages() { return bobbingImages; }
     public int[] getBobbingOffsets() { return bobbingOffsets; }
-
     public GameRendererPanel getDrawingPanel() { return this.drawingPanel; }
+
+    public int[][] getGameGrid() { return gameGrid; }
+    public Image[] getSquareBlockImages() { return squareBlockImages; }
+    public int[][] getCurrentPieceShape() { return currentPieceShape; }
+    public int getCurrentPieceGridX() { return currentPieceGridX; }
+    public int getCurrentPieceGridY() { return currentPieceGridY; }
+    public int getCurrentPieceType() { return currentPieceType; }
+
 
     private void startBobbingAnimation() {
         Timer animationTimer = new Timer(16, e -> {
@@ -244,9 +498,9 @@ class ImagePanel implements KeyListener {
             return;
         }
         switch (currentOverlayIndex) {
-            case 0:
-            case 1:
-            case 2:
+            case 0: 
+            case 1: 
+            case 2: 
                 openGameScreen(); break;
             case 3:
                 showCreditsOverlay(); break;
@@ -261,8 +515,28 @@ class ImagePanel implements KeyListener {
 
     public void openGameScreen() {
         inGameMode = true;
-        loadBackgroundImage("./res/bg/game.png");
-        System.out.println("Switched to game mode (empty screen).");
+        loadBackgroundImage("./res/bg/game.png"); 
+        for (int r = 0; r < GRID_ROWS; r++) {
+            for (int c = 0; c < GRID_COLS; c++) {
+                gameGrid[r][c] = 0;
+            }
+        }
+        spawnNewPiece(); 
+        
+        if (gameTimer != null && gameTimer.isRunning()) {
+            gameTimer.stop();
+        }
+        if (inGameMode) { 
+            gameTimer = new Timer(1000, ae -> { 
+                if (inGameMode) { 
+                    movePieceDown();
+                    drawingPanel.repaint();
+                }
+            });
+            gameTimer.start();
+        }
+        
+        System.out.println("Switched to game mode.");
         drawingPanel.repaint();
         drawingPanel.requestFocusInWindow();
     }
@@ -294,8 +568,43 @@ class ImagePanel implements KeyListener {
         int keyCode = e.getKeyCode();
 
         if (inGameMode) {
+            if (currentPieceShape == null) return; 
+
+            boolean needsRepaint = false;
+            if (keyCode == KeyEvent.VK_LEFT) {
+                if (canMove(currentPieceGridX - 1, currentPieceGridY, currentPieceShape)) {
+                    currentPieceGridX--;
+                    needsRepaint = true;
+                }
+            } else if (keyCode == KeyEvent.VK_RIGHT) {
+                if (canMove(currentPieceGridX + 1, currentPieceGridY, currentPieceShape)) {
+                    currentPieceGridX++;
+                    needsRepaint = true;
+                }
+            } else if (keyCode == KeyEvent.VK_DOWN) { 
+                movePieceDown(); 
+                needsRepaint = true; 
+            } else if (keyCode == KeyEvent.VK_UP) { 
+                int nextRotationIndex = (currentPieceRotation + 1) % pieceDefinitions.get(currentPieceType - 1).size();
+                int[][] nextShape = getPieceShape(currentPieceType - 1, nextRotationIndex);
+                if (canMove(currentPieceGridX, currentPieceGridY, nextShape)) {
+                    currentPieceRotation = nextRotationIndex;
+                    currentPieceShape = nextShape;
+                    needsRepaint = true;
+                }
+            } else if (keyCode == KeyEvent.VK_SPACE) { 
+                 while(canMove(currentPieceGridX, currentPieceGridY + 1, currentPieceShape)) {
+                    currentPieceGridY++;
+                }
+                landPiece();
+                spawnNewPiece(); 
+                needsRepaint = true;
+            }
+
+
             if (keyCode == KeyEvent.VK_ESCAPE) {
                 inGameMode = false;
+                if (gameTimer != null) gameTimer.stop();
                 loadBackgroundImage("./res/bg/mainmenu.png");
                 if (overlayImages != null && overlayImages.length > 0) {
                      currentOverlayIndex = 0;
@@ -309,11 +618,14 @@ class ImagePanel implements KeyListener {
                     currentOverlayIndex = -1;
                 }
                 System.out.println("Returning to main menu.");
+                needsRepaint = true; 
+            }
+            
+            if (needsRepaint) {
                 drawingPanel.repaint();
-                drawingPanel.requestFocusInWindow();
             }
 
-        } else {
+        } else { 
             if (overlayImages == null || overlayImages.length == 0) return;
 
             int numOverlays = overlayImages.length;
