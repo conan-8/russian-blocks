@@ -18,10 +18,8 @@ import javax.swing.Timer;
 class GameRendererPanel extends JPanel {
     private ImagePanel imagePanel;
     public static final int BLOCK_SIZE = 33; 
-    // Original X_OFFSET = (720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2; // (720 - 330) / 2 = 195
-    // Original Y_OFFSET = (720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2; // (720 - 660) / 2 = 30
-    public static final int GAME_AREA_X_OFFSET = ((720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2) - 170; // 195 - 170 = 25
-    public static final int GAME_AREA_Y_OFFSET = ((720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2) - 7;   // 30 - 7 = 23
+    public static final int GAME_AREA_X_OFFSET = ((720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2) - 168; 
+    public static final int GAME_AREA_Y_OFFSET = ((720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2) -17 ;  
 
 
     public GameRendererPanel(ImagePanel imagePanel) {
@@ -203,6 +201,7 @@ class ImagePanel implements KeyListener {
 
     private Random random = new Random();
     private Timer gameTimer;
+    private int gameSpeedDelay = 1000; // Default to 1 second (Easy)
 
     boolean inGameMode = false;
     Image backgroundImage;
@@ -498,10 +497,18 @@ class ImagePanel implements KeyListener {
             return;
         }
         switch (currentOverlayIndex) {
-            case 0: 
-            case 1: 
-            case 2: 
-                openGameScreen(); break;
+            case 0: // Easy
+                this.gameSpeedDelay = 1000;
+                openGameScreen(); 
+                break;
+            case 1: // Medium
+                this.gameSpeedDelay = 300;
+                openGameScreen(); 
+                break;
+            case 2: // Hard
+                this.gameSpeedDelay = 100;
+                openGameScreen(); 
+                break;
             case 3:
                 showCreditsOverlay(); break;
             case 4:
@@ -509,6 +516,8 @@ class ImagePanel implements KeyListener {
                 System.exit(0); break;
             default:
                 System.out.println("Unknown menu selection.");
+                this.gameSpeedDelay = 1000; // Default to easy if somehow an unknown selection
+                openGameScreen();
                 break;
         }
     }
@@ -527,7 +536,7 @@ class ImagePanel implements KeyListener {
             gameTimer.stop();
         }
         if (inGameMode) { 
-            gameTimer = new Timer(1000, ae -> { 
+            gameTimer = new Timer(this.gameSpeedDelay, ae -> { // Use the stored gameSpeedDelay
                 if (inGameMode) { 
                     movePieceDown();
                     drawingPanel.repaint();
@@ -536,7 +545,7 @@ class ImagePanel implements KeyListener {
             gameTimer.start();
         }
         
-        System.out.println("Switched to game mode.");
+        System.out.println("Switched to game mode with speed: " + this.gameSpeedDelay + "ms");
         drawingPanel.repaint();
         drawingPanel.requestFocusInWindow();
     }
