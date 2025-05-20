@@ -9,49 +9,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.Timer;
-//
-class TetrisBlock {
-    public double x;
-    public double y;
-    public Image blockImage;
-    public int rotationAngle = 0;
-    public double sourceImagePivotX;
-    public double sourceImagePivotY;
-    public double visualWidthInGridUnits;
-    public int pieceType; // Added to identify the type of Tetris block
-
-    public TetrisBlock() {
-        this.x = 1.0;
-        this.y = 1.0;
-        this.blockImage = null;
-        this.sourceImagePivotX = 0;
-        this.sourceImagePivotY = 0;
-        this.visualWidthInGridUnits = 1.0;
-        this.pieceType = -1; // Default unset pieceType
-    }
-
-    public void moveDown() {
-        y += 0.96;
-    }
-
-    public void moveLeft() {
-        x -= 1.0;
-    }
-
-    public void moveRight() {
-        x += 1.0;
-    }
-
-    public void rotate() {
-        rotationAngle = (rotationAngle + 90) % 360;
-    }
-}
-
 
 class GameRendererPanel extends JPanel {
     private ImagePanel imagePanel;
@@ -75,47 +36,6 @@ class GameRendererPanel extends JPanel {
             } else {
                 g2d.setColor(java.awt.Color.BLACK);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
-            }
-
-            final double blockSize = 33.6;
-
-            for (TetrisBlock landedBlock : this.imagePanel.getLandedBlocks()) {
-                if (landedBlock != null && landedBlock.blockImage != null) {
-                    Graphics2D g2d_landed = (Graphics2D) g.create();
-                    int drawX = (int)(landedBlock.x * blockSize);
-                    int drawY = (int)(landedBlock.y * blockSize);
-                    int naturalWidth = landedBlock.blockImage.getWidth(this);
-                    int naturalHeight = landedBlock.blockImage.getHeight(this);
-
-                    if (naturalWidth > 0 && naturalHeight > 0) {
-                        int scaledWidth = (int)(naturalWidth * 0.71);
-                        int scaledHeight = (int)(naturalHeight * 0.71);
-                        double absolutePivotX = drawX + (landedBlock.sourceImagePivotX * 0.71);
-                        double absolutePivotY = drawY + (landedBlock.sourceImagePivotY * 0.71);
-                        g2d_landed.rotate(Math.toRadians(landedBlock.rotationAngle), absolutePivotX, absolutePivotY);
-                        g2d_landed.drawImage(landedBlock.blockImage, drawX, drawY, scaledWidth, scaledHeight, this);
-                    }
-                    g2d_landed.dispose();
-                }
-            }
-
-            TetrisBlock currentBlock = this.imagePanel.getCurrentBlock();
-            if (currentBlock != null && currentBlock.blockImage != null) {
-                Graphics2D g2d_current = (Graphics2D) g.create();
-                int drawX = (int)(currentBlock.x * blockSize);
-                int drawY = (int)(currentBlock.y * blockSize);
-                int naturalWidth = currentBlock.blockImage.getWidth(this);
-                int naturalHeight = currentBlock.blockImage.getHeight(this);
-
-                if (naturalWidth > 0 && naturalHeight > 0) {
-                    int scaledWidth = (int)(naturalWidth * 0.71);
-                    int scaledHeight = (int)(naturalHeight * 0.71);
-                    double absolutePivotX = drawX + (currentBlock.sourceImagePivotX * 0.71);
-                    double absolutePivotY = drawY + (currentBlock.sourceImagePivotY * 0.71);
-                    g2d_current.rotate(Math.toRadians(currentBlock.rotationAngle), absolutePivotX, absolutePivotY);
-                    g2d_current.drawImage(currentBlock.blockImage, drawX, drawY, scaledWidth, scaledHeight, this);
-                }
-                g2d_current.dispose();
             }
         } else {
             if (this.imagePanel.getBackgroundImage() != null) {
@@ -170,7 +90,7 @@ public class RussianBlocks {
             "./res/options/quit.png"
         };
 
-        JFrame frame = new JFrame("Tetris Game");
+        JFrame frame = new JFrame("Main Menu Example");
         ImagePanel logicController = new ImagePanel(backgroundPath, overlayPaths);
 
         frame.setContentPane(logicController.getDrawingPanel());
@@ -192,11 +112,7 @@ public class RussianBlocks {
 
 class ImagePanel implements KeyListener {
 
-    private static final String TETRIS_BLOCK_IMAGE_DIRECTORY = "./res/pieces/";
-
     boolean inGameMode = false;
-    TetrisBlock currentBlock = null;
-    List<TetrisBlock> landedBlocks = new ArrayList<>();
     Image backgroundImage;
     Image[] overlayImages;
     int currentOverlayIndex = 0;
@@ -207,11 +123,7 @@ class ImagePanel implements KeyListener {
     final int bobbingAmplitude = 20;
     int timerTick = 0;
 
-    private final Random random = new Random();
     private GameRendererPanel drawingPanel;
-    private Image[] tetrisBlockTypeImages = new Image[7];
-    private Timer gameTimer;
-    private int moveDownCount = 0;
 
     public ImagePanel(String backgroundPath, String[] overlayPaths) {
         this.drawingPanel = new GameRendererPanel(this);
@@ -220,7 +132,6 @@ class ImagePanel implements KeyListener {
         loadBackgroundImage(backgroundPath);
         loadOverlayImages(overlayPaths);
         loadBobbingImages();
-        loadTetrisBlockTypeImages();
 
         if (this.overlayImages == null || this.overlayImages.length == 0) {
             this.currentOverlayIndex = -1;
@@ -237,32 +148,12 @@ class ImagePanel implements KeyListener {
     }
 
     public boolean isInGameMode() { return inGameMode; }
-    public TetrisBlock getCurrentBlock() { return currentBlock; }
-    public List<TetrisBlock> getLandedBlocks() { return landedBlocks; }
     public Image getBackgroundImage() { return backgroundImage; }
     public Image[] getOverlayImages() { return overlayImages; }
     public int getCurrentOverlayIndex() { return currentOverlayIndex; }
     public int getOverlayYPosition() { return overlayYPosition; }
     public List<Image> getBobbingImages() { return bobbingImages; }
     public int[] getBobbingOffsets() { return bobbingOffsets; }
-
-
-    private void loadTetrisBlockTypeImages() {
-        String basePath = TETRIS_BLOCK_IMAGE_DIRECTORY;
-        for (int i = 0; i < 7; i++) {
-            String imagePath = basePath + "piece_" + i + ".png";
-            File imageFile = new File(imagePath);
-            if (!imageFile.exists()) {
-                this.tetrisBlockTypeImages[i] = null;
-                continue;
-            }
-            try {
-                this.tetrisBlockTypeImages[i] = ImageIO.read(imageFile);
-            } catch (IOException e) {
-                this.tetrisBlockTypeImages[i] = null;
-            }
-        }
-    }
 
     public GameRendererPanel getDrawingPanel() { return this.drawingPanel; }
 
@@ -284,12 +175,14 @@ class ImagePanel implements KeyListener {
     private void loadBackgroundImage(String path) {
         File bgFile = new File(path);
         if (!bgFile.exists()) {
+            System.err.println("Warning: Background image not found: " + path);
             this.backgroundImage = null;
             return;
         }
         try {
             this.backgroundImage = ImageIO.read(bgFile);
         } catch (IOException e) {
+            System.err.println("Error loading background image: " + path + " - " + e.getMessage());
             this.backgroundImage = null;
         }
     }
@@ -303,12 +196,14 @@ class ImagePanel implements KeyListener {
         for (int i = 0; i < paths.length; i++) {
             File imageFile = new File(paths[i]);
             if (!imageFile.exists()) {
+                System.err.println("Warning: Overlay image not found: " + paths[i]);
                 this.overlayImages[i] = null;
                 continue;
             }
             try {
                 this.overlayImages[i] = ImageIO.read(imageFile);
             } catch (IOException e) {
+                System.err.println("Error loading overlay image: " + paths[i] + " - " + e.getMessage());
                 this.overlayImages[i] = null;
             }
         }
@@ -321,6 +216,7 @@ class ImagePanel implements KeyListener {
             String imagePath = bobbingBasePath + i + ".png";
             File imageFile = new File(imagePath);
             if (!imageFile.exists()) {
+                System.err.println("Warning: Bobbing image not found: " + imagePath);
                 bobbingImages.add(null);
                 continue;
             }
@@ -336,6 +232,7 @@ class ImagePanel implements KeyListener {
                     bobbingImages.add(null);
                 }
             } catch (IOException e) {
+                System.err.println("Error loading bobbing image: " + imagePath + " - " + e.getMessage());
                 bobbingImages.add(null);
             }
         }
@@ -343,184 +240,32 @@ class ImagePanel implements KeyListener {
 
     private void handleSelection() {
         if (overlayImages == null || currentOverlayIndex < 0 || currentOverlayIndex >= overlayImages.length || overlayImages[currentOverlayIndex] == null) {
+            System.out.println("No valid menu item selected.");
             return;
         }
         switch (currentOverlayIndex) {
-            case 0: case 1: case 2:
+            case 0:
+            case 1:
+            case 2:
                 openGameScreen(); break;
             case 3:
                 showCreditsOverlay(); break;
             case 4:
-                System.out.println("Quitting game.");
+                System.out.println("Quitting game via menu.");
                 System.exit(0); break;
-        }
-    }
-
-    private void handleBlockLanded() {
-        if (this.currentBlock != null) {
-            this.landedBlocks.add(this.currentBlock);
-        }
-        currentBlock = spawnNewBlock();
-        moveDownCount = 0;
-        drawingPanel.repaint();
-
-        if (gameTimer != null) {
-            if (gameTimer.isRunning()) {
-                gameTimer.stop();
-            }
-            gameTimer.start();
+            default:
+                System.out.println("Unknown menu selection.");
+                break;
         }
     }
 
     public void openGameScreen() {
         inGameMode = true;
         loadBackgroundImage("./res/bg/game.png");
-        landedBlocks.clear();
-        currentBlock = spawnNewBlock();
-        moveDownCount = 0;
-
-        if (gameTimer != null && gameTimer.isRunning()) {
-            gameTimer.stop();
-        }
-
-        gameTimer = new Timer(1000, ae -> {
-            if (inGameMode && currentBlock != null) {
-                currentBlock.moveDown();
-                moveDownCount++;
-                drawingPanel.repaint();
-                int landingThreshold = getLandingThreshold(currentBlock);
-                if (moveDownCount >= landingThreshold) {
-                    if (gameTimer != null && gameTimer.isRunning()) {
-                        gameTimer.stop();
-                    }
-                    handleBlockLanded();
-                }
-            }
-        });
-        gameTimer.start();
-        System.out.println("Switched to game mode.");
+        System.out.println("Switched to game mode (empty screen).");
         drawingPanel.repaint();
         drawingPanel.requestFocusInWindow();
     }
-
-    private TetrisBlock spawnNewBlock() {
-        TetrisBlock newBlock = new TetrisBlock();
-        int imageIndex = -1;
-
-        if (tetrisBlockTypeImages != null && tetrisBlockTypeImages.length > 0) {
-            List<Integer> validIndices = new ArrayList<>();
-            for(int i=0; i < tetrisBlockTypeImages.length; i++) {
-                if (tetrisBlockTypeImages[i] != null) {
-                    validIndices.add(i);
-                }
-            }
-            if (!validIndices.isEmpty()) {
-                imageIndex = validIndices.get((int)(Math.random() * validIndices.size()));
-                newBlock.blockImage = tetrisBlockTypeImages[imageIndex];
-            } else {
-                 newBlock.blockImage = null;
-                 imageIndex = 0;
-            }
-        } else {
-            newBlock.blockImage = null;
-            imageIndex = 0;
-        }
-        newBlock.pieceType = imageIndex;
-
-
-        switch (imageIndex) {
-            case 0: // Z piece
-                newBlock.sourceImagePivotX = 46; newBlock.sourceImagePivotY = 45;
-                newBlock.visualWidthInGridUnits = 3.0;
-                break;
-            case 1: // T piece
-                newBlock.sourceImagePivotX = 1.56 * 45; newBlock.sourceImagePivotY = 0.5 * 45;
-                newBlock.visualWidthInGridUnits = 3.0;
-                break;
-            case 2: // S piece
-                newBlock.sourceImagePivotX = 45; newBlock.sourceImagePivotY = 45;
-                newBlock.visualWidthInGridUnits = 3.0;
-                break;
-            case 3: // L piece
-                newBlock.sourceImagePivotX = 45; newBlock.sourceImagePivotY = 45;
-                newBlock.visualWidthInGridUnits = 2.0;
-                break;
-            case 4: // J piece
-                newBlock.sourceImagePivotX = 45.5; newBlock.sourceImagePivotY = 45;
-                newBlock.visualWidthInGridUnits = 2.0;
-                break;
-            case 5: // I piece
-                newBlock.sourceImagePivotX = 68.36; newBlock.sourceImagePivotY = 22.38;
-                newBlock.visualWidthInGridUnits = 4.0;
-                break;
-            case 6: // O piece
-                newBlock.sourceImagePivotX = 46; newBlock.sourceImagePivotY = 46;
-                newBlock.visualWidthInGridUnits = 2.0;
-                break;
-            default:
-                newBlock.sourceImagePivotX = 0; newBlock.sourceImagePivotY = 0;
-                newBlock.visualWidthInGridUnits = 1.0;
-                break;
-        }
-
-        newBlock.x = 4.9;
-        if (newBlock.x < 0) newBlock.x = 0;
-        newBlock.y = 0.7;
-        return newBlock;
-    }
-
-    private int getLandingThreshold(TetrisBlock block) {
-        if (block == null) return 18; // Default if block is null
-        int pieceType = block.pieceType;
-        int rotationAngle = block.rotationAngle;
-        int defaultThreshold = 18;
-
-        // I-piece (pieceType 5)
-        if (pieceType == 5) {
-            if (rotationAngle == 0 || rotationAngle == 180) { // Horizontal I-piece is 3 squares too high
-                return defaultThreshold + 3; // Lands 3 units lower (21)
-            } else { // Vertical I-piece (rotationAngle == 90 || rotationAngle == 270) - was 1 unit too low
-                return defaultThreshold - 1; // Lands 1 unit higher (17)
-            }
-        }
-
-        // L-piece (pieceType 3)
-        if (pieceType == 3) {
-            if (rotationAngle == 90 || rotationAngle == 270) { // Vertical L-piece - was 1 unit too low
-                return defaultThreshold - 1; // Lands 1 unit higher (17)
-            }
-        }
-
-        // J-piece (pieceType 4)
-        if (pieceType == 4) {
-            if (rotationAngle == 90 ) { // Vertical J-piece (90 deg) - was 1 unit too low
-                return defaultThreshold - 1; // Lands 1 unit higher (17)
-            } else if (rotationAngle == 270) { // Vertical J-piece (270 deg) - is 1 square too high
-                 return defaultThreshold + 1; // Lands 1 unit lower (19)
-            }
-        }
-
-        // S-piece (pieceType 2)
-        if (pieceType == 2) {
-            if (rotationAngle == 90) { // Vertical S-piece (90 deg) - was 1 unit too low
-                return defaultThreshold - 1; // Lands 1 unit higher (17)
-            } else if (rotationAngle == 270) { // Vertical S-piece (270 deg) - is 1 square too high
-                 return defaultThreshold + 1; // Lands 1 unit lower (19)
-            }
-        }
-
-        // Z-piece (pieceType 0)
-        if (pieceType == 0) {
-            if (rotationAngle == 90) { // Vertical Z-piece (90 deg) - was 1 unit too low
-                return defaultThreshold - 1; // Lands 1 unit higher (17)
-            } else if (rotationAngle == 270) { // Vertical Z-piece (270 deg) - is 1 square too high
-                 return defaultThreshold + 1; // Lands 1 unit lower (19)
-            }
-        }
-
-        return defaultThreshold; // Default threshold for all other pieces/orientations
-    }
-
 
     private void showCreditsOverlay() {
         System.out.println("Showing credits...");
@@ -543,57 +288,32 @@ class ImagePanel implements KeyListener {
         creditsLogic.getDrawingPanel().requestFocusInWindow();
     }
 
-    @Override public void keyTyped(KeyEvent e) {  }
+    @Override public void keyTyped(KeyEvent e) { }
 
     @Override public void keyPressed(KeyEvent e) {
         int keyCode = e.getKeyCode();
 
         if (inGameMode) {
-            if (currentBlock != null) {
-                boolean repaintAfterMove = false;
-                int landingThreshold = getLandingThreshold(currentBlock);
-
-                if (keyCode == KeyEvent.VK_LEFT || keyCode == KeyEvent.VK_A) {
-                    currentBlock.moveLeft();
-                    repaintAfterMove = true;
-                } else if (keyCode == KeyEvent.VK_RIGHT || keyCode == KeyEvent.VK_D) {
-                    currentBlock.moveRight();
-                    repaintAfterMove = true;
-                } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
-                    currentBlock.rotate();
-                    // It's important to get the new landing threshold *after* rotation
-                    landingThreshold = getLandingThreshold(currentBlock);
-                    repaintAfterMove = true;
-                } else if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S) { // Soft drop
-                    currentBlock.moveDown();
-                    moveDownCount++;
-                    if (moveDownCount >= landingThreshold) {
-                         if (gameTimer != null && gameTimer.isRunning()) gameTimer.stop();
-                         handleBlockLanded();
-                    } else {
-                        repaintAfterMove = true;
-                    }
+            if (keyCode == KeyEvent.VK_ESCAPE) {
+                inGameMode = false;
+                loadBackgroundImage("./res/bg/mainmenu.png");
+                if (overlayImages != null && overlayImages.length > 0) {
+                     currentOverlayIndex = 0;
+                     while(currentOverlayIndex < overlayImages.length && overlayImages[currentOverlayIndex] == null) {
+                         currentOverlayIndex++;
+                     }
+                     if (currentOverlayIndex >= overlayImages.length) {
+                         currentOverlayIndex = -1;
+                     }
+                } else {
+                    currentOverlayIndex = -1;
                 }
-
-                if (keyCode == KeyEvent.VK_SPACE) { // Hard drop
-                    if (moveDownCount < landingThreshold) { // Check if the block hasn't already landed or passed its threshold
-                        if (gameTimer != null && gameTimer.isRunning()) {
-                            gameTimer.stop(); // Stop the automatic descent
-                        }
-                        // Loop to move the block down until it reaches its landing threshold
-                        while (moveDownCount < landingThreshold) {
-                            currentBlock.moveDown(); // Update block's y-coordinate
-                            moveDownCount++;         // Increment the count of moves
-                        }
-                        // Now currentBlock.y is at its final position and moveDownCount matches landingThreshold
-                        handleBlockLanded(); // Process the landing
-                        // repaintAfterMove is implicitly true because handleBlockLanded calls repaint.
-                    }
-                } else if (repaintAfterMove) {
-                    drawingPanel.repaint();
-                }
+                System.out.println("Returning to main menu.");
+                drawingPanel.repaint();
+                drawingPanel.requestFocusInWindow();
             }
-        } else { // Menu mode
+
+        } else {
             if (overlayImages == null || overlayImages.length == 0) return;
 
             int numOverlays = overlayImages.length;
@@ -606,9 +326,13 @@ class ImagePanel implements KeyListener {
                     while(nextIndex < numOverlays && overlayImages[nextIndex] == null) nextIndex++;
                     if (nextIndex >= numOverlays) nextIndex = -1;
                 } else if (initialIndex != -1) {
+                    int searchStartIndex = (initialIndex + 1) % numOverlays;
+                    nextIndex = searchStartIndex;
                     do {
+                        if (overlayImages[nextIndex] != null) break;
                         nextIndex = (nextIndex + 1) % numOverlays;
-                    } while (overlayImages[nextIndex] == null && nextIndex != initialIndex);
+                    } while (nextIndex != searchStartIndex);
+                    if (overlayImages[nextIndex] == null) nextIndex = initialIndex;
                 }
             } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
                  if (initialIndex == -1 && numOverlays > 0) {
@@ -616,31 +340,42 @@ class ImagePanel implements KeyListener {
                     while(nextIndex >= 0 && overlayImages[nextIndex] == null) nextIndex--;
                     if (nextIndex < 0) nextIndex = -1;
                 } else if (initialIndex != -1) {
+                    int searchStartIndex = (initialIndex - 1 + numOverlays) % numOverlays;
+                    nextIndex = searchStartIndex;
                     do {
+                        if (overlayImages[nextIndex] != null) break;
                         nextIndex = (nextIndex - 1 + numOverlays) % numOverlays;
-                    } while (overlayImages[nextIndex] == null && nextIndex != initialIndex);
+                    } while (nextIndex != searchStartIndex);
+                    if (overlayImages[nextIndex] == null) nextIndex = initialIndex;
                 }
             }
 
             if ((keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S)) {
-                if (nextIndex != -1 && overlayImages[nextIndex] != null) {
+                if (nextIndex != -1 && nextIndex < numOverlays && overlayImages[nextIndex] != null) {
                     currentOverlayIndex = nextIndex;
                     drawingPanel.repaint();
-                } else if (nextIndex == initialIndex && (initialIndex == -1 || overlayImages[initialIndex] == null)) {
-                    // No change if no valid selection found and current is invalid
-                } else if (initialIndex != -1 && overlayImages[initialIndex] != null) {
-                    // Revert to initial if new selection is invalid but initial was valid
+                } else if (initialIndex != -1 && initialIndex < numOverlays && overlayImages[initialIndex] != null) {
                     currentOverlayIndex = initialIndex;
-                } else if (initialIndex == -1 && nextIndex == -1) {
-                     // Stay at -1 if no valid options at all
-                    currentOverlayIndex = -1;
+                } else {
+                    boolean foundValid = false;
+                    for(int i=0; i<numOverlays; i++) {
+                        if(overlayImages[i] != null) {
+                            currentOverlayIndex = i;
+                            foundValid = true;
+                            break;
+                        }
+                    }
+                    if(!foundValid) currentOverlayIndex = -1;
+                    drawingPanel.repaint();
                 }
             } else if (keyCode == KeyEvent.VK_ENTER) {
-                if (currentOverlayIndex != -1) {
+                if (currentOverlayIndex != -1 && currentOverlayIndex < numOverlays && overlayImages[currentOverlayIndex] != null) {
                     handleSelection();
+                } else {
+                    System.out.println("Enter pressed but no valid menu item is currently selected.");
                 }
             }
         }
     }
-    @Override public void keyReleased(KeyEvent e) { /* Not used */ }
+    @Override public void keyReleased(KeyEvent e) { }
 }
