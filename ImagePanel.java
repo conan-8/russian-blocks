@@ -1,5 +1,3 @@
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
@@ -12,7 +10,6 @@ import java.util.List;
 import java.util.Random;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
 import javax.swing.Timer;
 
 class ImagePanel implements KeyListener {
@@ -48,12 +45,27 @@ class ImagePanel implements KeyListener {
     private GameRendererPanel drawingPanel;
 
     // constructor method for images
-    public ImagePanel(String backgroundPath, String[] overlayPaths) {
+    public ImagePanel(String backgroundPath) {
+        String[] overlayPaths = {
+            "./res/options/easy.png",
+            "./res/options/medium.png",
+            "./res/options/hard.png",
+            "./res/options/credits.png",
+            "./res/options/quit.png"
+        };
+
+        // The pause menu overlay imahes
+        String[] inGameOverlayPaths = {
+            "./res/options/pause/mainmenu.png",
+            "./res/options/pause/newgame.png",
+            "./res/options/pause/resume.png"
+        };
         this.drawingPanel = new GameRendererPanel(this);
         this.drawingPanel.addKeyListener(this);
 
         loadBackgroundImage(backgroundPath);
         loadOverlayImages(overlayPaths);
+        loadOverlayImages(inGameOverlayPaths);
         loadBobbingImages(); 
         loadSquareBlockImages(); 
         initializePieceDefinitions();
@@ -395,7 +407,7 @@ class ImagePanel implements KeyListener {
     private void showCreditsOverlay() {
         System.out.println("Showing credits...");
         JFrame creditsFrame = new JFrame("Credits");
-        ImagePanel creditsLogic = new ImagePanel("./res/credits.png", null);
+        ImagePanel creditsLogic = new ImagePanel("./res/credits.png");
 
         creditsFrame.setContentPane(creditsLogic.getDrawingPanel());
         creditsFrame.setSize(720, 720);
@@ -419,58 +431,74 @@ class ImagePanel implements KeyListener {
         int keyCode = e.getKeyCode();
 
         if (inGameMode) {
+            
             if (currentPieceShape == null) return; 
 
             boolean needsRepaint = false;
-            if (keyCode == KeyEvent.VK_LEFT) {
-                if (canMove(currentPieceGridX - 1, currentPieceGridY, currentPieceShape)) {
-                    currentPieceGridX--;
-                    needsRepaint = true;
-                }
-            } else if (keyCode == KeyEvent.VK_RIGHT) {
-                if (canMove(currentPieceGridX + 1, currentPieceGridY, currentPieceShape)) {
-                    currentPieceGridX++;
-                    needsRepaint = true;
-                }
-            } else if (keyCode == KeyEvent.VK_DOWN) { 
-                movePieceDown(); 
-                needsRepaint = true; 
-            } else if (keyCode == KeyEvent.VK_UP) { 
-                int nextRotationIndex = (currentPieceRotation + 1) % pieceDefinitions.get(currentPieceType - 1).size();
-                int[][] nextShape = getPieceShape(currentPieceType - 1, nextRotationIndex);
-                if (canMove(currentPieceGridX, currentPieceGridY, nextShape)) {
-                    currentPieceRotation = nextRotationIndex;
-                    currentPieceShape = nextShape;
-                    needsRepaint = true;
-                }
-            } else if (keyCode == KeyEvent.VK_SPACE) { 
-                 while(canMove(currentPieceGridX, currentPieceGridY + 1, currentPieceShape)) {
-                    currentPieceGridY++;
-                }
-                landPiece();
-                spawnNewPiece(); 
-                needsRepaint = true;
-            }
 
-
-            if (keyCode == KeyEvent.VK_ESCAPE) {
-                inGameMode = false;
-                if (gameTimer != null) gameTimer.stop();
-                loadBackgroundImage("./res/bg/mainmenu.png");
-                if (overlayImages != null && overlayImages.length > 0) {
-                     currentOverlayIndex = 0;
-                     while(currentOverlayIndex < overlayImages.length && overlayImages[currentOverlayIndex] == null) {
-                         currentOverlayIndex++;
-                     }
-                     if (currentOverlayIndex >= overlayImages.length) {
-                         currentOverlayIndex = -1;
-                     }
+            if (keyCode == KeyEvent.VK_P || keyCode == KeyEvent.VK_ESCAPE) { // PAUSE THE GAME
+                // If game timer run, game timer stop
+                if (gameTimer != null && gameTimer.isRunning()) {
+                    gameTimer.stop();
                 } else {
-                    currentOverlayIndex = -1;
+                    gameTimer.start();
                 }
-                System.out.println("Returning to main menu.");
-                needsRepaint = true; 
+                needsRepaint = true;
+
             }
+            // IF the game is not paused - Piece moving/rotating/slamdowns
+            if (gameTimer.isRunning()){
+                if (keyCode == KeyEvent.VK_LEFT && gameTimer.isRunning()) {
+                    if (canMove(currentPieceGridX - 1, currentPieceGridY, currentPieceShape)) {
+                        currentPieceGridX--;
+                        needsRepaint = true;
+                    }
+
+                } else if (keyCode == KeyEvent.VK_RIGHT && gameTimer.isRunning()) {
+                    if (canMove(currentPieceGridX + 1, currentPieceGridY, currentPieceShape)) {
+                        currentPieceGridX++;
+                        needsRepaint = true;
+                    }
+                } else if (keyCode == KeyEvent.VK_DOWN && gameTimer.isRunning()) { 
+                    movePieceDown(); 
+                    needsRepaint = true; 
+                } else if (keyCode == KeyEvent.VK_UP && gameTimer.isRunning()) { 
+                    int nextRotationIndex = (currentPieceRotation + 1) % pieceDefinitions.get(currentPieceType - 1).size();
+                    int[][] nextShape = getPieceShape(currentPieceType - 1, nextRotationIndex);
+                    if (canMove(currentPieceGridX, currentPieceGridY, nextShape)) {
+                        currentPieceRotation = nextRotationIndex;
+                        currentPieceShape = nextShape;
+                        needsRepaint = true;
+                    }
+                } else if (keyCode == KeyEvent.VK_SPACE && gameTimer.isRunning()) { 
+                    while(canMove(currentPieceGridX, currentPieceGridY + 1, currentPieceShape)) {
+                        currentPieceGridY++;
+                    }
+                    landPiece();
+                    spawnNewPiece(); 
+                    needsRepaint = true;
+                }
+            }
+
+
+            // if (keyCode == KeyEvent.VK_ESCAPE) {
+            //     inGameMode = false;
+            //     if (gameTimer != null) gameTimer.stop();
+            //     loadBackgroundImage("./res/bg/mainmenu.png");
+            //     if (overlayImages != null && overlayImages.length > 0) {
+            //          currentOverlayIndex = 0;
+            //          while(currentOverlayIndex < overlayImages.length && overlayImages[currentOverlayIndex] == null) {
+            //              currentOverlayIndex++;
+            //          }
+            //          if (currentOverlayIndex >= overlayImages.length) {
+            //              currentOverlayIndex = -1;
+            //          }
+            //     } else {
+            //         currentOverlayIndex = -1;
+            //     }
+            //     System.out.println("Returning to main menu.");
+            //     needsRepaint = true; 
+            // }
             
             if (needsRepaint) {
                 drawingPanel.repaint();
