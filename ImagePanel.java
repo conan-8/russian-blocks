@@ -64,6 +64,7 @@ class ImagePanel implements KeyListener {
         this.drawingPanel.addKeyListener(this);
 
         loadBackgroundImage(backgroundPath);
+        // Fetch the overlay iamges to overlay
         loadOverlayImages(overlayPaths);
         loadOverlayImages(inGameOverlayPaths);
         loadBobbingImages(); 
@@ -84,7 +85,8 @@ class ImagePanel implements KeyListener {
         startBobbingAnimation();
     }
 
-    //manually adds the rotations and shapes for the pieces
+    // manually adds the rotations and shapes for the pieces
+    // 0 = empty square, 1-7 = different colours
     private void initializePieceDefinitions() {
         pieceDefinitions = new ArrayList<>();
         // T
@@ -295,26 +297,38 @@ class ImagePanel implements KeyListener {
     }
 
     private void loadOverlayImages(String[] paths) {
-        if (paths == null || paths.length == 0) {
-            this.overlayImages = new Image[0];
-            return;
-        }
-        this.overlayImages = new Image[paths.length];
-        for (int i = 0; i < paths.length; i++) {
-            File imageFile = new File(paths[i]);
-            if (!imageFile.exists()) {
-                System.err.println("Warning: Overlay image not found: " + paths[i]);
-                this.overlayImages[i] = null;
-                continue;
-            }
-            try {
-                this.overlayImages[i] = ImageIO.read(imageFile);
-            } catch (IOException e) {
-                System.err.println("Error loading overlay image: " + paths[i] + " - " + e.getMessage());
-                this.overlayImages[i] = null;
-            }
+    if (paths == null || paths.length == 0) {
+        return; // Nothing to load
+    }
+
+    int oldLength = (overlayImages == null) ? 0 : overlayImages.length;
+    Image[] newImages = new Image[oldLength + paths.length];
+
+    // Copy existing images if any
+    if (overlayImages != null) {
+        for (int i = 0; i < oldLength; i++) {
+            newImages[i] = overlayImages[i];
         }
     }
+
+    // Load new images
+    for (int i = 0; i < paths.length; i++) {
+        File imageFile = new File(paths[i]);
+        if (!imageFile.exists()) {
+            System.out.println("Warning: Overlay image not found: " + paths[i]);
+            newImages[oldLength + i] = null;
+            continue;
+        }
+        try {
+            newImages[oldLength + i] = ImageIO.read(imageFile);
+        } catch (IOException e) {
+            System.out.println("Error loading overlay image: " + paths[i] + " - " + e.getMessage());
+            newImages[oldLength + i] = null;
+        }
+    }
+
+    overlayImages = newImages;
+}
 
     private void loadBobbingImages() {
         bobbingImages.clear();
@@ -366,10 +380,10 @@ class ImagePanel implements KeyListener {
             case 3:
                 showCreditsOverlay(); break;
             case 4:
-                System.out.println("Quitting game via menu.");
+                System.out.println("Quitting game from main menu.");
                 System.exit(0); break;
             default:
-                System.out.println("Unknown menu selection.");
+                System.out.println("Unknown menu selection, opening easy mode.");
                 this.gameSpeedDelay = 1000; 
                 openGameScreen();
                 break;
