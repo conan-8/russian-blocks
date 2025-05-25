@@ -37,7 +37,7 @@ class GameRendererPanel extends JPanel {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g.create();
 
-        if (this.imagePanel.isInGameMode()) {
+        if (this.imagePanel.isInGameMode() && !this.imagePanel.inPauseMenu) {
             if (this.imagePanel.getBackgroundImage() != null) {
                 g2d.drawImage(this.imagePanel.getBackgroundImage(), 0, 0, this.getWidth(), this.getHeight(), this);
             } else {
@@ -118,23 +118,35 @@ class GameRendererPanel extends JPanel {
                 overlayImages[currentOverlayIndex] != null) {
                 Image currentOverlay = overlayImages[currentOverlayIndex];
                 int overlayWidth = currentOverlay.getWidth(this);
+                int overlayHeight = currentOverlay.getHeight(this);
                 int panelWidth = this.getWidth();
                 int x = (panelWidth - overlayWidth) / 2;
-                g2d.drawImage(currentOverlay, x, this.imagePanel.getOverlayYPosition(), this);
-            }
+                int y;
+                if (currentOverlayIndex >= 5 && currentOverlayIndex <= 7) {
+                    // Center pause menu overlays
+                    y = (this.getHeight() - overlayHeight) / 2;
+                } else {
+                    // Use main menu Y position
+                    y = this.imagePanel.getOverlayYPosition();
+                }
+                g2d.drawImage(currentOverlay, x, y, overlayWidth, overlayHeight, this);
 
-            int[] bobx = {-100, -60, 430, -250, 300, 550, -140};
-            int[] boby = {225, -160, 0, 0, 500, 300, 460};
-            List<Image> bobbingImages = this.imagePanel.getBobbingImages();
-            int[] bobbingOffsets = this.imagePanel.getBobbingOffsets();
+                // Only draw bobbing blocks for main menu overlays (numbers 0-4)
+                if (currentOverlayIndex >= 0 && currentOverlayIndex <= 4) {
+                    int[] bobx = {-100, -60, 430, -250, 300, 550, -140}; 
+                    int[] boby = {225, -160, 0, 0, 500, 300, 460};
+                    List<Image> bobbingImages = this.imagePanel.getBobbingImages();
+                    int[] bobbingOffsets = this.imagePanel.getBobbingOffsets();
 
-            for (int i = 0; i < bobbingImages.size(); i++) {
-                Image img = bobbingImages.get(i);
-                if (img != null) {
-                    if (i < bobx.length && i < boby.length && i < bobbingOffsets.length) {
-                        int x_pos = bobx[i];
-                        int y_pos = boby[i] + bobbingOffsets[i];
-                        g2d.drawImage(img, x_pos, y_pos, this);
+                    for (int i = 0; i < bobbingImages.size(); i++) {
+                        Image img = bobbingImages.get(i);
+                        if (img != null) {
+                            if (i < bobx.length && i < boby.length && i < bobbingOffsets.length) {
+                                int x_pos = bobx[i];
+                                int y_pos = boby[i] + bobbingOffsets[i];
+                                g2d.drawImage(img, x_pos, y_pos, this);
+                            }
+                        }
                     }
                 }
             }
