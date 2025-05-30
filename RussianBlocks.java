@@ -4,8 +4,6 @@ public class RussianBlocks {
     public static void main(String[] args) {
         // get the file paths for each png
         String backgroundPath = "./res/bg/mainmenu.png";
-        
-
 
         // Jframe setups
         JFrame frame = new JFrame("Tetris");

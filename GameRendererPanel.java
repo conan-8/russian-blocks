@@ -6,11 +6,13 @@ import javax.swing.JPanel;
 
 class GameRendererPanel extends JPanel {
     private ImagePanel imagePanel;
+    // set the block size
     public static final int BLOCK_SIZE = 33; 
+    // make the game area align with the bg image using pixel offsets
     public static final int GAME_AREA_X_OFFSET = ((720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2) - 178; 
     public static final int GAME_AREA_Y_OFFSET = ((720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2) -14 ;  
 
-
+    // sets up some basic stuff
     public GameRendererPanel(ImagePanel imagePanel) {
         super();
         this.imagePanel = imagePanel;
@@ -19,6 +21,7 @@ class GameRendererPanel extends JPanel {
         this.setBackground(java.awt.Color.DARK_GRAY); 
     }
 
+    // get the colour of the block
     private java.awt.Color getColorForType(int type) {
         switch (type) {
             case 1: return java.awt.Color.decode("#00FFFF"); 
@@ -154,3 +157,4 @@ class GameRendererPanel extends JPanel {
         g2d.dispose();
     }
 }
+

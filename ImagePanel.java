@@ -458,20 +458,11 @@ class ImagePanel implements KeyListener {
                 int pauseStart = 5, pauseEnd = 8; // 5,6,7
 
                 if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
-                    // nextIndex = (currentOverlayIndex < pauseEnd - 1) ? currentOverlayIndex + 1 : pauseStart;
-                    // while (nextIndex < pauseEnd && overlayImages[nextIndex] == null) nextIndex++;
-                    // if (nextIndex >= pauseEnd) nextIndex = pauseStart;
-                    // currentOverlayIndex = nextIndex;
-                    // drawingPanel.repaint();
+              
                     currentOverlayIndex++;
                     if (currentOverlayIndex >= pauseEnd) currentOverlayIndex = pauseStart;
                     drawingPanel.repaint();
                 } else if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S) {
-                    // nextIndex = (currentOverlayIndex > pauseStart) ? currentOverlayIndex - 1 : pauseEnd - 1;
-                    // while (nextIndex >= pauseStart && overlayImages[nextIndex] == null) nextIndex--;
-                    // if (nextIndex < pauseStart) nextIndex = pauseEnd - 1;
-                    // currentOverlayIndex = nextIndex;
-                    // drawingPanel.repaint();
                     currentOverlayIndex--;
                     if (currentOverlayIndex < pauseStart) currentOverlayIndex = pauseEnd - 1;
                     drawingPanel.repaint();
