@@ -6,11 +6,13 @@ import javax.swing.JPanel;
 
 class GameRendererPanel extends JPanel {
     private ImagePanel imagePanel;
+    // set the block size
     public static final int BLOCK_SIZE = 33; 
+    // make the game area align with the bg image using pixel offsets
     public static final int GAME_AREA_X_OFFSET = ((720 - (ImagePanel.GRID_COLS * BLOCK_SIZE)) / 2) - 178; 
     public static final int GAME_AREA_Y_OFFSET = ((720 - (ImagePanel.GRID_ROWS * BLOCK_SIZE)) / 2) -14 ;  
 
-
+    // sets up some basic stuff
     public GameRendererPanel(ImagePanel imagePanel) {
         super();
         this.imagePanel = imagePanel;
@@ -19,6 +21,7 @@ class GameRendererPanel extends JPanel {
         this.setBackground(java.awt.Color.DARK_GRAY); 
     }
 
+    // get the colour of the block
     private java.awt.Color getColorForType(int type) {
         switch (type) {
             case 1: return java.awt.Color.decode("#00FFFF"); 
@@ -37,7 +40,7 @@ class GameRendererPanel extends JPanel {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g.create();
 
-        if (this.imagePanel.isInGameMode()) {
+        if (this.imagePanel.isInGameMode() && !this.imagePanel.inPauseMenu) {
             if (this.imagePanel.getBackgroundImage() != null) {
                 g2d.drawImage(this.imagePanel.getBackgroundImage(), 0, 0, this.getWidth(), this.getHeight(), this);
             } else {
@@ -118,23 +121,35 @@ class GameRendererPanel extends JPanel {
                 overlayImages[currentOverlayIndex] != null) {
                 Image currentOverlay = overlayImages[currentOverlayIndex];
                 int overlayWidth = currentOverlay.getWidth(this);
+                int overlayHeight = currentOverlay.getHeight(this);
                 int panelWidth = this.getWidth();
                 int x = (panelWidth - overlayWidth) / 2;
-                g2d.drawImage(currentOverlay, x, this.imagePanel.getOverlayYPosition(), this);
-            }
+                int y;
+                if (currentOverlayIndex >= 5 && currentOverlayIndex <= 7) {
+                    // Center pause menu overlays
+                    y = (this.getHeight() - overlayHeight) / 2;
+                } else {
+                    // Use main menu Y position
+                    y = this.imagePanel.getOverlayYPosition();
+                }
+                g2d.drawImage(currentOverlay, x, y, overlayWidth, overlayHeight, this);
 
-            int[] bobx = {-100, -60, 430, -250, 300, 550, -140};
-            int[] boby = {225, -160, 0, 0, 500, 300, 460};
-            List<Image> bobbingImages = this.imagePanel.getBobbingImages();
-            int[] bobbingOffsets = this.imagePanel.getBobbingOffsets();
+                // Only draw bobbing blocks for main menu overlays (numbers 0-4)
+                if (currentOverlayIndex >= 0 && currentOverlayIndex <= 4) {
+                    int[] bobx = {-100, -60, 430, -250, 300, 550, -140}; 
+                    int[] boby = {225, -160, 0, 0, 500, 300, 460};
+                    List<Image> bobbingImages = this.imagePanel.getBobbingImages();
+                    int[] bobbingOffsets = this.imagePanel.getBobbingOffsets();
 
-            for (int i = 0; i < bobbingImages.size(); i++) {
-                Image img = bobbingImages.get(i);
-                if (img != null) {
-                    if (i < bobx.length && i < boby.length && i < bobbingOffsets.length) {
-                        int x_pos = bobx[i];
-                        int y_pos = boby[i] + bobbingOffsets[i];
-                        g2d.drawImage(img, x_pos, y_pos, this);
+                    for (int i = 0; i < bobbingImages.size(); i++) {
+                        Image img = bobbingImages.get(i);
+                        if (img != null) {
+                            if (i < bobx.length && i < boby.length && i < bobbingOffsets.length) {
+                                int x_pos = bobx[i];
+                                int y_pos = boby[i] + bobbingOffsets[i];
+                                g2d.drawImage(img, x_pos, y_pos, this);
+                            }
+                        }
                     }
                 }
             }
@@ -142,3 +157,4 @@ class GameRendererPanel extends JPanel {
         g2d.dispose();
     }
 }
+

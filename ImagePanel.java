@@ -40,6 +40,7 @@ class ImagePanel implements KeyListener {
     int[] bobbingOffsets = new int[7];
     int[] bobbingSpeeds = new int[7];
     final int bobbingAmplitude = 20;
+    boolean inPauseMenu = false;
     int timerTick = 0;
 
     private GameRendererPanel drawingPanel;
@@ -297,38 +298,41 @@ class ImagePanel implements KeyListener {
     }
 
     private void loadOverlayImages(String[] paths) {
-    if (paths == null || paths.length == 0) {
-        return; // Nothing to load
-    }
-
-    int oldLength = (overlayImages == null) ? 0 : overlayImages.length;
-    Image[] newImages = new Image[oldLength + paths.length];
-
-    // Copy existing images if any
-    if (overlayImages != null) {
-        for (int i = 0; i < oldLength; i++) {
-            newImages[i] = overlayImages[i];
+        if (paths == null || paths.length == 0) {
+            return; // Nothing to load
         }
-    }
 
-    // Load new images
-    for (int i = 0; i < paths.length; i++) {
-        File imageFile = new File(paths[i]);
-        if (!imageFile.exists()) {
-            System.out.println("Warning: Overlay image not found: " + paths[i]);
-            newImages[oldLength + i] = null;
-            continue;
-        }
-        try {
-            newImages[oldLength + i] = ImageIO.read(imageFile);
-        } catch (IOException e) {
-            System.out.println("Error loading overlay image: " + paths[i] + " - " + e.getMessage());
-            newImages[oldLength + i] = null;
-        }
-    }
+        int oldLength = (overlayImages == null) ? 0 : overlayImages.length;
+        Image[] newImages = new Image[oldLength + paths.length];
 
-    overlayImages = newImages;
-}
+        // Copy existing images if any
+        if (overlayImages != null) {
+            for (int i = 0; i < oldLength; i++) {
+                newImages[i] = overlayImages[i];
+            }
+        }
+
+        // Load new images
+        for (int i = 0; i < paths.length; i++) {
+            File imageFile = new File(paths[i]);
+            System.out.println("Trying to load overlay: " + imageFile.getAbsolutePath());
+            if (!imageFile.exists()) {
+                System.out.println("Warning: Overlay image not found: " + paths[i]);
+                newImages[oldLength + i] = null;
+                continue;
+            } else {
+                System.out.println("Successfully loaded overlay image: " + paths[i]);
+            }
+            try {
+                newImages[oldLength + i] = ImageIO.read(imageFile);
+            } catch (IOException e) {
+                System.out.println("Error loading overlay image: " + paths[i] + " - " + e.getMessage());
+                newImages[oldLength + i] = null;
+            }
+        }
+
+        overlayImages = newImages;
+    }
 
     private void loadBobbingImages() {
         bobbingImages.clear();
@@ -447,19 +451,50 @@ class ImagePanel implements KeyListener {
         if (inGameMode) {
             
             if (currentPieceShape == null) return; 
-
             boolean needsRepaint = false;
 
-            if (keyCode == KeyEvent.VK_P || keyCode == KeyEvent.VK_ESCAPE) { // PAUSE THE GAME
-                // If game timer run, game timer stop
-                if (gameTimer != null && gameTimer.isRunning()) {
-                    gameTimer.stop();
-                } else {
-                    gameTimer.start();
-                }
-                needsRepaint = true;
 
+            if (inPauseMenu) {
+                int pauseStart = 5, pauseEnd = 8; // 5,6,7
+
+                if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
+              
+                    currentOverlayIndex++;
+                    if (currentOverlayIndex >= pauseEnd) currentOverlayIndex = pauseStart;
+                    drawingPanel.repaint();
+                } else if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S) {
+                    currentOverlayIndex--;
+                    if (currentOverlayIndex < pauseStart) currentOverlayIndex = pauseEnd - 1;
+                    drawingPanel.repaint();
+                } else if (keyCode == KeyEvent.VK_ENTER) {
+                    switch (currentOverlayIndex) {
+                        case 5: // Main Menu
+                            inPauseMenu = false;
+                            inGameMode = false;
+                            if (gameTimer != null) gameTimer.stop();
+                            loadBackgroundImage("./res/bg/mainmenu.png");
+                            currentOverlayIndex = 0;
+                            drawingPanel.repaint();
+                            break;
+                        case 6: // New Game
+                            inPauseMenu = false;
+                            openGameScreen();
+                            break;
+                        case 7: // Resume
+                            inPauseMenu = false;
+                            if (gameTimer != null) gameTimer.start();
+                            drawingPanel.repaint();
+                            break;
+                    }
+                } else if (keyCode == KeyEvent.VK_P || keyCode == KeyEvent.VK_ESCAPE) {
+                    // Resume game if P or ESC pressed again
+                    inPauseMenu = false;
+                    gameTimer.start();
+                    drawingPanel.repaint();
+                }
+                return;
             }
+            
             // IF the game is not paused - Piece moving/rotating/slamdowns
             if (gameTimer.isRunning()){
                 if (keyCode == KeyEvent.VK_LEFT && gameTimer.isRunning()) {
@@ -491,28 +526,13 @@ class ImagePanel implements KeyListener {
                     landPiece();
                     spawnNewPiece(); 
                     needsRepaint = true;
+                } else if (keyCode == KeyEvent.VK_P || keyCode == KeyEvent.VK_ESCAPE) { // PAUSE THE GAME
+                    gameTimer.stop();
+                    inPauseMenu = true;
+                    currentOverlayIndex = 7;
+                    needsRepaint = true;
                 }
             }
-
-
-            // if (keyCode == KeyEvent.VK_ESCAPE) {
-            //     inGameMode = false;
-            //     if (gameTimer != null) gameTimer.stop();
-            //     loadBackgroundImage("./res/bg/mainmenu.png");
-            //     if (overlayImages != null && overlayImages.length > 0) {
-            //          currentOverlayIndex = 0;
-            //          while(currentOverlayIndex < overlayImages.length && overlayImages[currentOverlayIndex] == null) {
-            //              currentOverlayIndex++;
-            //          }
-            //          if (currentOverlayIndex >= overlayImages.length) {
-            //              currentOverlayIndex = -1;
-            //          }
-            //     } else {
-            //         currentOverlayIndex = -1;
-            //     }
-            //     System.out.println("Returning to main menu.");
-            //     needsRepaint = true; 
-            // }
             
             if (needsRepaint) {
                 drawingPanel.repaint();
@@ -521,58 +541,26 @@ class ImagePanel implements KeyListener {
         } else { 
             if (overlayImages == null || overlayImages.length == 0) return;
 
-            int numOverlays = overlayImages.length;
-            int initialIndex = currentOverlayIndex;
-            int nextIndex = currentOverlayIndex;
+            int numOverlays = 5;
 
             if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S) {
-                if (initialIndex == -1 && numOverlays > 0) {
-                    nextIndex = 0;
-                    while(nextIndex < numOverlays && overlayImages[nextIndex] == null) nextIndex++;
-                    if (nextIndex >= numOverlays) nextIndex = -1;
-                } else if (initialIndex != -1) {
-                    int searchStartIndex = (initialIndex + 1) % numOverlays;
-                    nextIndex = searchStartIndex;
-                    do {
-                        if (overlayImages[nextIndex] != null) break;
-                        nextIndex = (nextIndex + 1) % numOverlays;
-                    } while (nextIndex != searchStartIndex);
-                    if (overlayImages[nextIndex] == null) nextIndex = initialIndex;
-                }
-            } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
-                 if (initialIndex == -1 && numOverlays > 0) {
-                    nextIndex = numOverlays - 1;
-                    while(nextIndex >= 0 && overlayImages[nextIndex] == null) nextIndex--;
-                    if (nextIndex < 0) nextIndex = -1;
-                } else if (initialIndex != -1) {
-                    int searchStartIndex = (initialIndex - 1 + numOverlays) % numOverlays;
-                    nextIndex = searchStartIndex;
-                    do {
-                        if (overlayImages[nextIndex] != null) break;
-                        nextIndex = (nextIndex - 1 + numOverlays) % numOverlays;
-                    } while (nextIndex != searchStartIndex);
-                    if (overlayImages[nextIndex] == null) nextIndex = initialIndex;
-                }
-            }
-
-            if ((keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_S)) {
-                if (nextIndex != -1 && nextIndex < numOverlays && overlayImages[nextIndex] != null) {
-                    currentOverlayIndex = nextIndex;
-                    drawingPanel.repaint();
-                } else if (initialIndex != -1 && initialIndex < numOverlays && overlayImages[initialIndex] != null) {
-                    currentOverlayIndex = initialIndex;
-                } else {
-                    boolean foundValid = false;
-                    for(int i=0; i<numOverlays; i++) {
-                        if(overlayImages[i] != null) {
-                            currentOverlayIndex = i;
-                            foundValid = true;
-                            break;
-                        }
+                for (int i = 1; i <= numOverlays; i++) {
+                    int idx = (currentOverlayIndex + i) % numOverlays;
+                    if (overlayImages[idx] != null) {
+                        currentOverlayIndex = idx;
+                        break;
                     }
-                    if(!foundValid) currentOverlayIndex = -1;
-                    drawingPanel.repaint();
                 }
+                drawingPanel.repaint();
+            } else if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_W) {
+                for (int i = 1; i <= numOverlays; i++) {
+                    int idx = (currentOverlayIndex - i + numOverlays) % numOverlays;
+                    if (overlayImages[idx] != null) {
+                        currentOverlayIndex = idx;
+                        break;
+                    }
+                }
+                drawingPanel.repaint();
             } else if (keyCode == KeyEvent.VK_ENTER) {
                 if (currentOverlayIndex != -1 && currentOverlayIndex < numOverlays && overlayImages[currentOverlayIndex] != null) {
                     handleSelection();
