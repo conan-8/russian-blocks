@@ -298,6 +298,12 @@ class GameRendererPanel extends JPanel {
           Image[] overlayImages = this.imagePanel.getOverlayImages();
           int currentOverlayIndex = this.imagePanel.getCurrentOverlayIndex();
 
+          // Dont do overlay if its credits
+          java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
+          if (window instanceof javax.swing.JFrame && "Credits".equals(((javax.swing.JFrame)window).getTitle())) {
+              g2d.dispose();
+              return; 
+          }
 
           if (overlayImages != null &&
               currentOverlayIndex >= 0 &&
